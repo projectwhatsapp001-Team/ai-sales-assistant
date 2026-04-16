@@ -1,0 +1,151 @@
+export const stats = [
+  { label: "Total Conversations", value: "1,284", change: "+12%", up: true },
+  { label: "Orders Logged", value: "347", change: "+8%", up: true },
+  { label: "Follow-ups Sent", value: "92", change: "+23%", up: true },
+  { label: "Conversion Rate", value: "27%", change: "-2%", up: false },
+];
+
+export const salesData = [
+  { day: "Mon", sales: 14 },
+  { day: "Tue", sales: 22 },
+  { day: "Wed", sales: 18 },
+  { day: "Thu", sales: 31 },
+  { day: "Fri", sales: 27 },
+  { day: "Sat", sales: 40 },
+  { day: "Sun", sales: 35 },
+];
+
+export const conversations = [
+  {
+    id: 1,
+    name: "Akosua Mensah",
+    phone: "+233 24 123 4567",
+    message: "I want to order 2 boxes of the shea butter",
+    time: "2m ago",
+    status: "buying",
+    avatar: "AM",
+  },
+  {
+    id: 2,
+    name: "Kwame Asante",
+    phone: "+233 54 987 6543",
+    message: "How much does the coconut oil cost?",
+    time: "15m ago",
+    status: "browsing",
+    avatar: "KA",
+  },
+  {
+    id: 3,
+    name: "Efua Boateng",
+    phone: "+233 20 456 7890",
+    message: "Is delivery available to Kumasi?",
+    time: "1h ago",
+    status: "browsing",
+    avatar: "EB",
+  },
+  {
+    id: 4,
+    name: "Kofi Darko",
+    phone: "+233 27 321 0987",
+    message: "Yes, please confirm my order",
+    time: "2h ago",
+    status: "ordered",
+    avatar: "KD",
+  },
+  {
+    id: 5,
+    name: "Ama Owusu",
+    phone: "+233 55 654 3210",
+    message: "I will come back later to complete it",
+    time: "3h ago",
+    status: "abandoned",
+    avatar: "AO",
+  },
+  {
+    id: 6,
+    name: "Yaw Frimpong",
+    phone: "+233 24 111 2222",
+    message: "Can I get a discount for bulk order?",
+    time: "5h ago",
+    status: "browsing",
+    avatar: "YF",
+  },
+];
+
+export const orders = [
+  {
+    id: "#ORD-001",
+    customer: "Kofi Darko",
+    item: "Shea Butter x2",
+    amount: "GH₵ 120",
+    status: "confirmed",
+    time: "2h ago",
+  },
+  {
+    id: "#ORD-002",
+    customer: "Akosua Mensah",
+    item: "Coconut Oil x1",
+    amount: "GH₵ 65",
+    status: "pending",
+    time: "Just now",
+  },
+  {
+    id: "#ORD-003",
+    customer: "Nana Adjei",
+    item: "Moringa Powder x3",
+    amount: "GH₵ 210",
+    status: "delivered",
+    time: "1d ago",
+  },
+  {
+    id: "#ORD-004",
+    customer: "Abena Frema",
+    item: "Black Soap Bundle",
+    amount: "GH₵ 95",
+    status: "confirmed",
+    time: "1d ago",
+  },
+  {
+    id: "#ORD-005",
+    customer: "Kojo Asante",
+    item: "Baobab Oil x1",
+    amount: "GH₵ 80",
+    status: "delivered",
+    time: "2d ago",
+  },
+];
+
+export const followups = [
+  {
+    id: 1,
+    customer: "Ama Owusu",
+    phone: "+233 55 654 3210",
+    item: "Shea Butter x2",
+    abandoned: "3h ago",
+    status: "pending",
+  },
+  {
+    id: 2,
+    customer: "Efua Boateng",
+    phone: "+233 20 456 7890",
+    item: "Coconut Oil x1",
+    abandoned: "1h ago",
+    status: "sent",
+  },
+  {
+    id: 3,
+    customer: "Yaw Frimpong",
+    phone: "+233 24 111 2222",
+    item: "Bulk Order Mix",
+    abandoned: "5h ago",
+    status: "pending",
+  },
+  {
+    id: 4,
+    customer: "Adwoa Sarpong",
+    phone: "+233 27 888 9999",
+    item: "Moringa Powder x2",
+    abandoned: "1d ago",
+    status: "replied",
+  },
+];
