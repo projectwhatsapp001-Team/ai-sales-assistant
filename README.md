@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+
 # AI Sales Assistant (SaaS)
 
 This is a full-stack AI-powered sales automation tool for WhatsApp, designed to help SMEs manage orders and customer inquiries.
