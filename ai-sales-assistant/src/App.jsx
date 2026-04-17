@@ -6,12 +6,13 @@ import OverviewPage from "./components/pages/OverviewPage";
 import ConversationsPage from "./components/pages/ConversationsPage";
 import OrdersPage from "./components/pages/OrdersPage";
 import FollowUpPage from "./components/pages/FollowUpPage";
-
+import SettingsPage from "./components/pages/SettingsPage";
 const PAGES = {
   overview: OverviewPage,
   conversations: ConversationsPage,
   orders: OrdersPage,
   followups: FollowUpPage,
+  settings: SettingsPage, // ADD THIS LINE
 };
 
 export default function App() {
