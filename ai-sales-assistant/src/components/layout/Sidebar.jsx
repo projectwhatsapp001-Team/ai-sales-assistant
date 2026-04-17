@@ -5,6 +5,7 @@ import {
   RefreshCw,
   X,
   Zap,
+  Settings, // Add this line
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -12,6 +13,7 @@ const NAV_ITEMS = [
   { id: "conversations", label: "Conversations", Icon: MessageSquare },
   { id: "orders", label: "Orders", Icon: ShoppingBag },
   { id: "followups", label: "Follow-ups", Icon: RefreshCw },
+  { id: "settings", label: "Settings", Icon: Settings }, // Add this line
 ];
 
 export default function Sidebar({ activePage, onNavigate, open, onClose }) {
@@ -50,15 +52,15 @@ export default function Sidebar({ activePage, onNavigate, open, onClose }) {
               <Zap size={14} style={{ color: "#000", fill: "#000" }} />
             </div>
             <span
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 16,
-                color: "#fff",
-              }}
-            >
-              SalesBot
-            </span>
+  style={{
+    fontFamily: "Syne, sans-serif",
+    fontWeight: 700,
+    fontSize: 16,
+    color: "#fff",
+  }}
+>
+BETTY
+</span>
           </div>
           <button
             onClick={onClose}
@@ -84,7 +86,7 @@ export default function Sidebar({ activePage, onNavigate, open, onClose }) {
             }}
           />
           <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 500 }}>
-            AI Agent Active
+           Betty is online
           </span>
         </div>
 
