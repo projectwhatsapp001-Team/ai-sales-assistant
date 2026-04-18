@@ -1,5 +1,7 @@
+// src/pages/FollowUpsPage.jsx
+import { useState, useEffect } from "react";
 import { Send, Clock, CheckCheck } from "lucide-react";
-import { followups } from "../../lib/mockData";
+import { apiGet, apiPatch } from "../../lib/api";
 
 const STATUS_CONFIG = {
   pending: {
@@ -23,11 +25,49 @@ const STATUS_CONFIG = {
     color: "#4ade80",
     border: "rgba(34,197,94,0.3)",
   },
+  cancelled: {
+    label: "Cancelled",
+    Icon: Clock,
+    bg: "rgba(239,68,68,0.15)",
+    color: "#f87171",
+    border: "rgba(239,68,68,0.3)",
+  },
 };
 
 export default function FollowUpsPage() {
+  const [followups, setFollowups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchFollowups() {
+      try {
+        setLoading(true);
+        const data = await apiGet("/followups");
+        setFollowups(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFollowups();
+  }, []);
+
+  async function handleSendNow(id) {
+    try {
+      await apiPatch(`/followups/${id}/send`, {});
+      setFollowups((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, status: "sent" } : f)),
+      );
+    } catch (err) {
+      alert("Failed to send follow-up: " + err.message);
+    }
+  }
+
   return (
     <div className="fade-up space-y-3">
+      {/* Info Banner */}
       <div
         className="flex items-center gap-3 px-4 py-3 rounded-xl"
         style={{
@@ -50,6 +90,7 @@ export default function FollowUpsPage() {
         </p>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
           {
@@ -79,16 +120,17 @@ export default function FollowUpsPage() {
                 fontFamily: "Syne, sans-serif",
                 fontSize: 24,
                 fontWeight: 700,
-                color: s.color,
+                color: loading ? "#4a6a44" : s.color,
                 marginTop: 4,
               }}
             >
-              {s.count}
+              {loading ? "..." : s.count}
             </p>
           </div>
         ))}
       </div>
 
+      {/* List */}
       <div
         className="rounded-xl overflow-hidden"
         style={{ background: "#111710", border: "1px solid #1f2a1e" }}
@@ -109,23 +151,50 @@ export default function FollowUpsPage() {
           </p>
         </div>
 
-        <div>
-          {followups.map((f, i) => {
-            const cfg = STATUS_CONFIG[f.status];
+        {loading ? (
+          <div
+            className="py-12 text-center"
+            style={{ fontSize: 13, color: "#4a6a44" }}
+          >
+            Loading follow-ups...
+          </div>
+        ) : error ? (
+          <div
+            className="py-12 text-center"
+            style={{ fontSize: 13, color: "#f87171" }}
+          >
+            Error: {error}
+          </div>
+        ) : followups.length === 0 ? (
+          <div
+            className="py-12 text-center"
+            style={{ fontSize: 13, color: "#4a6a44" }}
+          >
+            No follow-ups yet
+          </div>
+        ) : (
+          followups.map((f, i) => {
+            const cfg = STATUS_CONFIG[f.status] || STATUS_CONFIG.pending;
             const Icon = cfg.Icon;
-            const initials = f.customer
+            const name = f.customers?.full_name || "Unknown";
+            const phone = f.customers?.phone_number || "";
+            const item =
+              f.orders?.items?.[0]?.name || f.message_preview || "Unknown item";
+            const initials = name
               .split(" ")
               .map((n) => n[0])
-              .join("");
+              .join("")
+              .slice(0, 2);
+            const time = new Date(f.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
 
             return (
               <div
                 key={f.id}
-                className="flex items-center gap-3 px-5 py-4 transition-colors"
-                style={{
-                  borderTop: i === 0 ? "none" : "1px solid #1f2a1e",
-                  background: "transparent",
-                }}
+                className="flex items-center gap-3 px-5 py-4"
+                style={{ borderTop: i === 0 ? "none" : "1px solid #1f2a1e" }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "#192018";
                 }}
@@ -146,20 +215,17 @@ export default function FollowUpsPage() {
                 >
                   {initials}
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <p style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>
-                    {f.customer}
+                    {name}
                   </p>
                   <p style={{ fontSize: 11, color: "#7a9a74", marginTop: 2 }}>
-                    {f.item}
+                    {item}
                   </p>
                   <p style={{ fontSize: 10, color: "#2a4a24", marginTop: 2 }}>
-                    {f.phone} · abandoned {f.abandoned}
+                    {phone} · {time}
                   </p>
                 </div>
-
-                {/* Status + Action */}
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                   <span
                     className="flex items-center gap-1.5"
@@ -176,9 +242,9 @@ export default function FollowUpsPage() {
                     <Icon size={9} />
                     {cfg.label}
                   </span>
-
                   {f.status === "pending" && (
                     <button
+                      onClick={() => handleSendNow(f.id)}
                       style={{
                         fontSize: 11,
                         color: "#22c55e",
@@ -200,8 +266,8 @@ export default function FollowUpsPage() {
                 </div>
               </div>
             );
-          })}
-        </div>
+          })
+        )}
       </div>
     </div>
   );

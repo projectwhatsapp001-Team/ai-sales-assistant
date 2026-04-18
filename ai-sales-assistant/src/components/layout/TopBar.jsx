@@ -5,6 +5,7 @@ const PAGE_TITLES = {
   conversations: "Conversations",
   orders: "Orders",
   followups: "Follow-ups",
+  settings: "Settings",
 };
 
 export default function TopBar({ page, onMenuClick }) {
