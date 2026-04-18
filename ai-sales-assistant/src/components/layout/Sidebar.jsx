@@ -1,11 +1,12 @@
+// src/components/layout/Sidebar.jsx
 import {
   LayoutDashboard,
   MessageSquare,
   ShoppingBag,
   RefreshCw,
+  Settings,
   X,
   Zap,
-  Settings, // Add this line
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -13,12 +14,19 @@ const NAV_ITEMS = [
   { id: "conversations", label: "Conversations", Icon: MessageSquare },
   { id: "orders", label: "Orders", Icon: ShoppingBag },
   { id: "followups", label: "Follow-ups", Icon: RefreshCw },
-  { id: "settings", label: "Settings", Icon: Settings }, // Add this line
+  { id: "settings", label: "Settings", Icon: Settings },
 ];
 
-export default function Sidebar({ activePage, onNavigate, open, onClose }) {
+export default function Sidebar({
+  activePage,
+  onNavigate,
+  open,
+  onClose,
+  onSignOut,
+}) {
   return (
     <>
+      {/* Mobile dark overlay */}
       {open && (
         <div
           className="fixed inset-0 z-20 md:hidden"
@@ -52,15 +60,15 @@ export default function Sidebar({ activePage, onNavigate, open, onClose }) {
               <Zap size={14} style={{ color: "#000", fill: "#000" }} />
             </div>
             <span
-  style={{
-    fontFamily: "Syne, sans-serif",
-    fontWeight: 700,
-    fontSize: 16,
-    color: "#fff",
-  }}
->
-BETTY
-</span>
+              style={{
+                fontFamily: "Syne, sans-serif",
+                fontWeight: 700,
+                fontSize: 16,
+                color: "#fff",
+              }}
+            >
+              BETTY
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -86,10 +94,11 @@ BETTY
             }}
           />
           <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 500 }}>
-           Betty is online
+            Betty is online
           </span>
         </div>
 
+        {/* Nav Items */}
         <nav className="flex-1 p-2 mt-2 space-y-1">
           {NAV_ITEMS.map(({ id, label, Icon }) => {
             const active = activePage === id;
@@ -126,29 +135,55 @@ BETTY
             );
           })}
         </nav>
-        <div
-          className="flex items-center gap-2 p-3"
-          style={{ borderTop: "1px solid #1f2a1e" }}
-        >
-          <div
-            className="flex items-center justify-center rounded-full flex-shrink-0"
+
+        {/* Footer — User info + Sign Out */}
+        <div className="p-3" style={{ borderTop: "1px solid #1f2a1e" }}>
+          {/* User Info */}
+          <div className="flex items-center gap-2 mb-2">
+            <div
+              className="flex items-center justify-center rounded-full flex-shrink-0"
+              style={{
+                width: 30,
+                height: 30,
+                background: "#243024",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#22c55e",
+              }}
+            >
+              TL
+            </div>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
+                Team Lead
+              </p>
+              <p style={{ fontSize: 11, color: "#4a6a44" }}>Admin</p>
+            </div>
+          </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={onSignOut}
+            className="w-full rounded-lg py-1.5 transition-all"
             style={{
-              width: 30,
-              height: 30,
-              background: "#243024",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#22c55e",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "transparent",
+              border: "1px solid #1f2a1e",
+              color: "#4a6a44",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "rgba(239,68,68,0.4)";
+              e.currentTarget.style.color = "#f87171";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#1f2a1e";
+              e.currentTarget.style.color = "#4a6a44";
             }}
           >
-            TL
-          </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
-              Team Lead
-            </p>
-            <p style={{ fontSize: 11, color: "#4a6a44" }}>Admin</p>
-          </div>
+            Sign Out
+          </button>
         </div>
       </aside>
     </>
