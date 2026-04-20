@@ -1,186 +1,150 @@
 // src/components/layout/Sidebar.jsx
-import {
-  LayoutDashboard,
-  MessageSquare,
-  ShoppingBag,
-  RefreshCw,
-  Settings,
-  X,
-  Zap,
-} from "lucide-react";
+import { LayoutDashboard, MessageSquare, ShoppingCart, Clock, BarChart3, Settings, Zap, X, Bot } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "overview", label: "Overview", Icon: LayoutDashboard },
-  { id: "conversations", label: "Conversations", Icon: MessageSquare },
-  { id: "orders", label: "Orders", Icon: ShoppingBag },
-  { id: "followups", label: "Follow-ups", Icon: RefreshCw },
-  { id: "settings", label: "Settings", Icon: Settings },
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "conversations", label: "Conversations", icon: MessageSquare, badge: 12 },
+  { id: "orders", label: "Orders", icon: ShoppingCart, badge: 5 },
+  { id: "followups", label: "Follow-ups", icon: Clock, badge: 8 },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export default function Sidebar({
-  activePage,
-  onNavigate,
-  open,
-  onClose,
-  onSignOut,
-}) {
+export default function Sidebar({ activePage, onNavigate, open, onClose, onSignOut }) {
   return (
     <>
-      {/* Mobile dark overlay */}
       {open && (
-        <div
-          className="fixed inset-0 z-20 md:hidden"
-          style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/70 z-40 lg:hidden" onClick={onClose} />
       )}
 
       <aside
-        className={`
-          fixed md:static inset-y-0 left-0 z-30 flex flex-col
-          transition-transform duration-300
-          ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}
+        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col transition-transform duration-300 ${
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
         style={{
-          width: "220px",
-          background: "#111710",
-          borderRight: "1px solid #1f2a1e",
+          width: 240,
+          background: "#0f0f14",
+          borderRight: "1px solid #1a1a22",
         }}
       >
-        {/* Logo */}
-        <div
-          className="flex items-center justify-between px-4 py-4"
-          style={{ borderBottom: "1px solid #1f2a1e" }}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center justify-center rounded-lg"
-              style={{ width: 30, height: 30, background: "#22c55e" }}
-            >
-              <Zap size={14} style={{ color: "#000", fill: "#000" }} />
-            </div>
-            <span
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 16,
-                color: "#fff",
-              }}
-            >
-              BETTY
-            </span>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid #1a1a22" }}>
+          <div
+            className="flex items-center justify-center rounded-lg"
+            style={{ width: 32, height: 32, background: "#6366f1" }}
+          >
+            <Bot size={18} style={{ color: "#fff" }} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 16, color: "#f8fafc" }}>
+              SalesBot
+            </p>
+            <p style={{ fontSize: 11, color: "#64748b" }}>Betty is online</p>
           </div>
           <button
             onClick={onClose}
-            className="md:hidden"
-            style={{ color: "#4a6a44" }}
+            className="ml-auto lg:hidden"
+            style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer" }}
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* AI Status Badge */}
-        <div
-          className="flex items-center gap-2 mx-3 mt-3 px-3 py-2 rounded-lg"
-          style={{ background: "#192018", border: "1px solid #243024" }}
-        >
-          <span
-            className="pulse-dot rounded-full flex-shrink-0"
+        {/* Betty AI Button */}
+        <div className="px-3 py-3">
+          <button
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer"
             style={{
-              width: 7,
-              height: 7,
-              background: "#22c55e",
-              display: "inline-block",
+              background: "rgba(99,102,241,0.1)",
+              color: "#818cf8",
+              border: "1px solid rgba(99,102,241,0.2)",
+              fontSize: 13,
+              fontWeight: 500,
             }}
-          />
-          <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 500 }}>
-            Betty is online
-          </span>
+          >
+            <Zap size={16} />
+            <span>Betty</span>
+            <span
+              className="ml-auto flex items-center justify-center rounded-md"
+              style={{ width: 22, height: 18, background: "#6366f1", fontSize: 9, fontWeight: 700, color: "#fff" }}
+            >
+              AI
+            </span>
+          </button>
         </div>
 
-        {/* Nav Items */}
-        <nav className="flex-1 p-2 mt-2 space-y-1">
-          {NAV_ITEMS.map(({ id, label, Icon }) => {
-            const active = activePage === id;
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-2 space-y-1">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activePage === item.id;
+            const Icon = item.icon;
             return (
               <button
-                key={id}
-                onClick={() => onNavigate(id)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-150"
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all cursor-pointer"
                 style={{
+                  background: isActive ? "#18181f" : "transparent",
+                  color: isActive ? "#818cf8" : "#64748b",
+                  border: isActive ? "1px solid #2a2a35" : "1px solid transparent",
                   fontSize: 13,
                   fontWeight: 500,
-                  border: active
-                    ? "1px solid rgba(34,197,94,0.25)"
-                    : "1px solid transparent",
-                  background: active ? "rgba(34,197,94,0.10)" : "transparent",
-                  color: active ? "#22c55e" : "#7a9a74",
                 }}
                 onMouseEnter={(e) => {
-                  if (!active) {
-                    e.currentTarget.style.background = "#192018";
-                    e.currentTarget.style.color = "#e8f5e2";
+                  if (!isActive) {
+                    e.currentTarget.style.background = "#18181f";
+                    e.currentTarget.style.color = "#94a3b8";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!active) {
+                  if (!isActive) {
                     e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#7a9a74";
+                    e.currentTarget.style.color = "#64748b";
                   }
                 }}
               >
-                <Icon size={15} />
-                {label}
+                <Icon size={16} />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge && (
+                  <span
+                    className="flex items-center justify-center rounded-full"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      background: isActive ? "#6366f1" : "#2a2a35",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: isActive ? "#fff" : "#64748b",
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        {/* Footer — User info + Sign Out */}
-        <div className="p-3" style={{ borderTop: "1px solid #1f2a1e" }}>
-          {/* User Info */}
-          <div className="flex items-center gap-2 mb-2">
+        {/* Footer */}
+        <div className="px-5 py-4" style={{ borderTop: "1px solid #1a1a22" }}>
+          <div className="flex items-center gap-3">
             <div
-              className="flex items-center justify-center rounded-full flex-shrink-0"
-              style={{
-                width: 30,
-                height: 30,
-                background: "#243024",
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#22c55e",
-              }}
+              className="flex items-center justify-center rounded-full"
+              style={{ width: 28, height: 28, background: "#18181f", fontSize: 11, fontWeight: 700, color: "#64748b", border: "1px solid #2a2a35" }}
             >
               TL
             </div>
             <div>
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
-                Team Lead
-              </p>
-              <p style={{ fontSize: 11, color: "#4a6a44" }}>Admin</p>
+              <p style={{ fontSize: 12, fontWeight: 500, color: "#f8fafc" }}>Team Lead</p>
+              <p style={{ fontSize: 11, color: "#64748b" }}>Admin</p>
             </div>
           </div>
-
-          {/* Sign Out Button */}
           <button
             onClick={onSignOut}
-            className="w-full rounded-lg py-1.5 transition-all"
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              background: "transparent",
-              border: "1px solid #1f2a1e",
-              color: "#4a6a44",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "rgba(239,68,68,0.4)";
-              e.currentTarget.style.color = "#f87171";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#1f2a1e";
-              e.currentTarget.style.color = "#4a6a44";
-            }}
+            className="mt-3 w-full text-left px-3 py-2 rounded-lg cursor-pointer transition-colors"
+            style={{ fontSize: 12, color: "#64748b", background: "transparent", border: "none" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#f43f5e"; e.currentTarget.style.background = "rgba(244,63,94,0.1)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#64748b"; e.currentTarget.style.background = "transparent"; }}
           >
             Sign Out
           </button>

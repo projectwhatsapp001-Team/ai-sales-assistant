@@ -9,6 +9,7 @@ import ConversationsPage from "./components/pages/ConversationsPage";
 import OrdersPage from "./components/pages/OrdersPage";
 import FollowUpPage from "./components/pages/FollowUpPage";
 import SettingsPage from "./components/pages/SettingsPage";
+import AnalyticsPage from "./components/pages/AnalyticsPage";
 
 const PAGES = {
   overview: OverviewPage,
@@ -16,6 +17,7 @@ const PAGES = {
   orders: OrdersPage,
   followups: FollowUpPage,
   settings: SettingsPage,
+  analytics: AnalyticsPage,
 };
 
 export default function App() {
@@ -23,44 +25,32 @@ export default function App() {
   const [page, setPage] = useState("overview");
   const [sidebarOpen, setSidebar] = useState(false);
 
-  // While Supabase checks for an existing session — show blank dark screen
   if (loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "#0a0f0d" }}
-      >
-        <div style={{ color: "#22c55e", fontSize: 13 }}>Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#07070a" }}>
+        <div style={{ color: "#6366f1", fontSize: 13 }}>Loading...</div>
       </div>
     );
   }
 
-  // No user logged in — show login screen
   if (!user) {
     return <LoginPage onLogin={signIn} />;
   }
 
-  // User is logged in — show the dashboard
   const PageComponent = PAGES[page] || OverviewPage;
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: "#0a0f0d", color: "#e8f5e2" }}
-    >
+    <div className="flex h-screen overflow-hidden" style={{ background: "#07070a", color: "#f8fafc" }}>
       <Sidebar
         activePage={page}
-        onNavigate={(p) => {
-          setPage(p);
-          setSidebar(false);
-        }}
+        onNavigate={(p) => { setPage(p); setSidebar(false); }}
         open={sidebarOpen}
         onClose={() => setSidebar(false)}
         onSignOut={signOut}
       />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden" style={{ background: "#07070a" }}>
         <TopBar page={page} onMenuClick={() => setSidebar(true)} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-hidden p-6" style={{ background: "#07070a" }}>
           <PageComponent key={page} />
         </main>
       </div>
