@@ -34,6 +34,10 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/followups", require("./routes/followups"));
 app.use("/api/webhook", require("./routes/webhook"));
 
+// Dashboard (Internal Visibility)
+const dashboardAdapter = require("./config/dashboard");
+app.use("/admin/queues", dashboardAdapter.getRouter());
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -51,4 +55,12 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Backend server running on http://localhost:${PORT}`);
   console.log(`📡 CORS enabled for frontend development`);
+  
+  // Start the background worker
+  try {
+    require("./workers/messageWorker");
+    console.log(`🚀 Message Worker initialized with BullMQ`);
+  } catch (err) {
+    console.error(`❌ Failed to start Message Worker: ${err.message}`);
+  }
 });
