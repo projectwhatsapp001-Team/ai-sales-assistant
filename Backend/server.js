@@ -7,7 +7,6 @@ const rateLimit = require("express-rate-limit");
 const logger = require("./logger");
 
 // ── Sentry v8 compatible setup ────────────────────────────────
-// Sentry v8+ removed Sentry.Handlers — init is enough
 if (process.env.SENTRY_DSN) {
   try {
     const Sentry = require("@sentry/node");
@@ -34,7 +33,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, curl)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       logger.warn(`CORS blocked request from: ${origin}`);
@@ -53,7 +51,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── Global rate limiter ───────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
@@ -63,7 +61,7 @@ app.use("/api", globalLimiter);
 
 // ── Strict rate limiter for AI stream ─────────────────────────
 const streamLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   max: 30,
   message: { error: "Too many AI requests. Slow down." },
 });
@@ -92,18 +90,20 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// ── Root route so Railway health checks don't 404 ─────────────
+app.get("/", (_req, res) => {
+  res.json({ name: "SalesBot API", status: "running" });
+});
+
 // ── Global error handler ──────────────────────────────────────
 app.use((err, req, res, _next) => {
   logger.error(`Unhandled error on ${req.method} ${req.path}: ${err.message}`);
-
-  // Report to Sentry if available
   if (process.env.SENTRY_DSN) {
     try {
       const Sentry = require("@sentry/node");
       Sentry.captureException(err);
     } catch (_) {}
   }
-
   res.status(err.status || 500).json({
     error:
       process.env.NODE_ENV === "production"
@@ -113,9 +113,12 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────
+// Bind to 0.0.0.0 — required on Railway (localhost won't work)
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  logger.info(`✅ SalesBot backend running on port ${PORT}`);
+const HOST = "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
+  logger.info(`✅ SalesBot backend running on ${HOST}:${PORT}`);
   logger.info(`   Environment: ${process.env.NODE_ENV || "development"}`);
   logger.info(`   Allowed origins: ${allowedOrigins.join(", ")}`);
 });
