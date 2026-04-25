@@ -1,11 +1,7 @@
+// backend/routes/orders.js
 const express = require("express");
 const router = express.Router();
-const { createClient } = require("@supabase/supabase-js");
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+const supabase = require("../supabase");
 
 // GET all orders
 router.get("/", async (req, res) => {
@@ -17,8 +13,24 @@ router.get("/", async (req, res) => {
 
     if (error) throw error;
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET single order
+router.get("/:id", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`*, customers(full_name, phone_number)`)
+      .eq("id", req.params.id)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -26,6 +38,17 @@ router.get("/", async (req, res) => {
 router.patch("/:id/status", async (req, res) => {
   try {
     const { status } = req.body;
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "processing",
+      "delivered",
+      "cancelled",
+    ];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+
     const { data, error } = await supabase
       .from("orders")
       .update({ status })
@@ -35,8 +58,8 @@ router.patch("/:id/status", async (req, res) => {
 
     if (error) throw error;
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
