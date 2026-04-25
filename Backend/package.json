@@ -1,28 +1,28 @@
 {
-  "name": "backend",
+  "name": "salesbot-backend",
   "version": "1.0.0",
-  "description": "AI Sales Assistant Backend API",
-  "license": "ISC",
-  "author": "Macee",
-  "type": "commonjs",
-  "main": "index.js",
+  "description": "Betty AI Sales Assistant — Express backend",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
-    "@sentry/node": "^10.50.0",
-    "@supabase/supabase-js": "^2.38.0",
-    "axios": "^1.15.2",
+    "@sentry/node": "^7.99.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
-    "openai": "^4.20.0",
+    "openai": "^4.28.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
