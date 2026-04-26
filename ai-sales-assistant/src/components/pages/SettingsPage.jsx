@@ -102,18 +102,27 @@ export default function SettingsPage({ profileId }) {
 
   // ── Save profile to Supabase ──────────────────────────────
   async function saveProfile(updates) {
-    setSaveState("saving");
-    try {
-      await supabase.from("profiles").update(updates).eq("id", profileId);
-      setProfileData((prev) => ({ ...prev, ...updates }));
-      setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2500);
-    } catch (err) {
-      console.error("Profile save error:", err);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 2500);
+  setSaveState("saving");
+  try {
+    await supabase.from("profiles").update(updates).eq("id", profileId);
+    setProfileData((prev) => ({ ...prev, ...updates }));
+    
+    // ── ALSO save to localStorage for instant sidebar update ──
+    if (updates.business_name) {
+      localStorage.setItem("betty-business-name", updates.business_name);
     }
+    if (updates.full_name) {
+      localStorage.setItem("betty-user-name", updates.full_name);
+    }
+    
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 2500);
+  } catch (err) {
+    console.error("Profile save error:", err);
+    setSaveState("error");
+    setTimeout(() => setSaveState("idle"), 2500);
   }
+}
 
   // ── Section renderer ──────────────────────────────────────
   if (activeSection) {
