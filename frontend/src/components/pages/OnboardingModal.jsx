@@ -47,8 +47,22 @@ export default function OnboardingModal({ userId, onComplete }) {
     setLoading(true);
     try {
       // Generate a tailored system prompt based on what the business sells
-      const systemPrompt = `You are Betty, a friendly AI sales assistant for ${form.business_name}. 
-You help customers learn about ${form.products || "our products"} in the ${form.industry} industry.
+      // Escape user input to prevent prompt injection
+      const escapedBusiness = (form.business_name || "").replace(
+        /["\\'\\\\]/g,
+        "\\\\$&",
+      );
+      const escapedProducts = (form.products || "our products").replace(
+        /["\\'\\\\]/g,
+        "\\\\$&",
+      );
+      const escapedIndustry = (form.industry || "").replace(
+        /["\\'\\\\]/g,
+        "\\\\$&",
+      );
+
+      const systemPrompt = `You are Betty, a friendly AI sales assistant for ${escapedBusiness}. 
+You help customers learn about ${escapedProducts} in the ${escapedIndustry} industry.
 Keep replies short like WhatsApp texts — max 2-3 sentences. Be warm, helpful, and direct.
 When a customer wants to buy, confirm their order details clearly.
 Always be polite and professional.`;

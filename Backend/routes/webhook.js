@@ -1,33 +1,32 @@
-// backend/routes/webhook.js
+// Backend/routes/webhook.js
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 const OpenAI = require("openai");
-const supabase = require("../supabase");
 const logger = require("../logger");
+const supabase = require("../supabase");
+const {
+  getProfile,
+  getProfileByCustomerPhone,
+  getAiSettings,
+  getConversationHistory,
+  findOrCreateCustomer,
+  isSubscriptionActive,
+} = require("../lib/profile");
+const {
+  OPENAI_MODEL,
+  OPENAI_MAX_TOKENS,
+  OPENAI_TEMPERATURE,
+  OPENAI_TIMEOUT_MS,
+  WHATSAPP_TIMEOUT_MS,
+  FOLLOW_UP_DELAY_MS,
+  PURCHASE_KEYWORDS,
+} = require("../lib/constants");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
-const PURCHASE_KEYWORDS = [
-  "buy",
-  "order",
-  "purchase",
-  "want to get",
-  "how much",
-  "price",
-  "cost",
-  "i'll take",
-  "add to",
-  "checkout",
-  "pay",
-  "payment",
-  "deliver",
-  "shipping",
-];
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: OPENAI_TIMEOUT_MS,
+});
 
 function hasPurchaseIntent(message) {
   const lower = message.toLowerCase();
@@ -35,9 +34,20 @@ function hasPurchaseIntent(message) {
 }
 
 async function sendWhatsAppMessage(to, message) {
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+  if (
+    !token ||
+    !phoneId ||
+    token === "placeholder" ||
+    phoneId === "placeholder"
+  ) {
+    logger.warn("WhatsApp credentials not configured — skipping send");
+    return;
+  }
   try {
     await axios.post(
-      `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`,
+      `https://graph.facebook.com/v18.0/${phoneId}/messages`,
       {
         messaging_product: "whatsapp",
         to,
@@ -46,89 +56,36 @@ async function sendWhatsAppMessage(to, message) {
       },
       {
         headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        timeout: WHATSAPP_TIMEOUT_MS,
       },
     );
-    logger.info(`WhatsApp message sent to ${to}`);
+    logger.info(`WhatsApp sent to ${to}`);
   } catch (err) {
+    // Log full error details internally but don't crash
     logger.error(
-      `WhatsApp send error: ${err.response?.data?.error?.message || err.message}`,
+      `WhatsApp send failed: ${err.response?.data?.error?.message || err.message}`,
     );
   }
 }
 
-async function findOrCreateCustomer(phone, profileId) {
-  const { data: existing } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("phone_number", phone)
-    .eq("profile_id", profileId)
-    .single();
-  if (existing) return existing;
-
-  const { data: newCustomer, error } = await supabase
-    .from("customers")
-    .insert({ phone_number: phone, profile_id: profileId })
-    .select()
-    .single();
-  if (error) throw error;
-  return newCustomer;
-}
-
-async function getConversationHistory(customerId, profileId) {
-  const { data } = await supabase
-    .from("conversations")
-    .select("role, message")
-    .eq("customer_id", customerId)
-    .eq("profile_id", profileId)
-    .order("created_at", { ascending: true })
-    .limit(10);
-  return (data || []).map((row) => ({
-    role: row.role === "assistant" ? "assistant" : "user",
-    content: row.message,
-  }));
-}
-
-async function getAiSettings(profileId) {
-  const { data } = await supabase
-    .from("ai_settings")
-    .select("*")
-    .eq("profile_id", profileId)
-    .single();
-  return (
-    data || {
-      persona_name: "Betty",
-      persona_tone: "friendly",
-      system_prompt: "You are Betty, a friendly AI sales assistant.",
-      auto_mode: true,
-      auto_followup: true,
-    }
-  );
-}
-
-async function getProfile() {
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .limit(1)
-    .single();
-  return data;
-}
-
-// GET — webhook verification
+// GET — Meta webhook verification
 router.get("/", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    logger.info("WhatsApp Webhook verified by Meta");
-    res.status(200).send(challenge);
-  } else {
-    logger.error("Webhook verification failed — token mismatch");
-    res.status(403).json({ error: "Verification failed" });
+  if (
+    mode === "subscribe" &&
+    token &&
+    token === process.env.WHATSAPP_VERIFY_TOKEN
+  ) {
+    logger.info("WhatsApp webhook verified");
+    return res.status(200).send(challenge);
   }
+  logger.error("Webhook verification failed");
+  res.status(403).json({ error: "Forbidden" });
 });
 
 // POST — incoming messages
@@ -137,141 +94,208 @@ router.post("/", async (req, res) => {
 
   try {
     const body = req.body;
-    if (body.object !== "whatsapp_business_account") return;
+    if (!body || body.object !== "whatsapp_business_account") return;
 
-    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
-    if (!messages?.length) return;
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const messages = value?.messages;
+
+    if (!Array.isArray(messages) || messages.length === 0) return;
 
     const incomingMsg = messages[0];
-    if (incomingMsg.type !== "text") return;
+    if (!incomingMsg || incomingMsg.type !== "text") return;
+
+    // Validate text body exists
+    if (!incomingMsg.text || typeof incomingMsg.text.body !== "string") return;
 
     const customerPhone = incomingMsg.from;
-    const customerMessage = incomingMsg.text.body;
+    const customerMessage = incomingMsg.text.body.trim();
 
-    // Sanitize — don't log full message content in production
-    logger.info(
-      `Incoming WhatsApp message from ${customerPhone} (${customerMessage.length} chars)`,
-    );
+    if (!customerPhone || !customerMessage) return;
 
-    const profile = await getProfile();
-    if (!profile) {
-      logger.error("No profile found");
+    logger.info(`Incoming message from ${customerPhone}`);
+
+    // ── Get profile & check subscription (parallel) ────────
+    let profile, aiSettings;
+    try {
+      // Try to find profile by customer phone (existing customer)
+      profile = await getProfileByCustomerPhone(customerPhone);
+      if (!profile) {
+        logger.warn(`No profile found for customer phone ${customerPhone}`);
+        return;
+      }
+    } catch (err) {
+      logger.error(`getProfile failed: ${err.message}`);
       return;
     }
 
-    // Check if account is active/trial valid
-    const now = new Date();
-    const trialEndsAt = profile.trial_ends_at
-      ? new Date(profile.trial_ends_at)
-      : null;
-    const isPaid = ["starter", "pro"].includes(profile.plan);
-    const isInTrial = trialEndsAt && now < trialEndsAt;
-
-    if (!isPaid && !isInTrial) {
-      logger.warn(
-        `Profile ${profile.id} subscription expired — not processing message`,
-      );
+    if (!isSubscriptionActive(profile)) {
+      logger.warn(`Subscription inactive for profile ${profile.id}`);
       return;
     }
 
-    const aiSettings = await getAiSettings(profile.id);
+    try {
+      aiSettings = await getAiSettings(profile.id);
+    } catch (err) {
+      logger.error(`getAiSettings failed: ${err.message}`);
+      return;
+    }
+
     if (!aiSettings.auto_mode) {
-      const customer = await findOrCreateCustomer(customerPhone, profile.id);
-      await supabase.from("conversations").insert({
+      try {
+        const customer = await findOrCreateCustomer(customerPhone, profile.id);
+        await supabase.from("conversations").insert({
+          profile_id: profile.id,
+          customer_id: customer.id,
+          role: "user",
+          message: customerMessage,
+          status: "browsing",
+        });
+      } catch (err) {
+        logger.error(`Save message (auto-mode off) failed: ${err.message}`);
+      }
+      return;
+    }
+
+    // ── Find/create customer ───────────────────────────────
+    let customer;
+    try {
+      customer = await findOrCreateCustomer(customerPhone, profile.id);
+    } catch (err) {
+      logger.error(`findOrCreateCustomer failed: ${err.message}`);
+      return;
+    }
+
+    const intentDetected = hasPurchaseIntent(customerMessage);
+    const messageStatus = intentDetected ? "buying" : "browsing";
+
+    // ── Save incoming + get history in parallel ────────────
+    let history = [];
+    try {
+      const insertResult = await supabase.from("conversations").insert({
         profile_id: profile.id,
         customer_id: customer.id,
         role: "user",
         message: customerMessage,
-        status: "browsing",
+        status: messageStatus,
       });
-      logger.info("Auto-mode off — message saved, no reply sent");
+      if (insertResult.error) {
+        logger.error(
+          `Failed to save incoming message: ${insertResult.error.message}`,
+        );
+        return;
+      }
+      history = await getConversationHistory(customer.id, profile.id);
+    } catch (err) {
+      logger.error(`Save/history failed: ${err.message}`);
       return;
     }
 
-    const customer = await findOrCreateCustomer(customerPhone, profile.id);
-    const intentDetected = hasPurchaseIntent(customerMessage);
-    const messageStatus = intentDetected ? "buying" : "browsing";
-
-    await supabase.from("conversations").insert({
-      profile_id: profile.id,
-      customer_id: customer.id,
-      role: "user",
-      message: customerMessage,
-      status: messageStatus,
-    });
-
-    const history = await getConversationHistory(customer.id, profile.id);
+    // ── Build system prompt safely ─────────────────────────
     const systemPrompt =
-      aiSettings.system_prompt ||
-      `You are ${aiSettings.persona_name}, a ${aiSettings.persona_tone} AI sales assistant.`;
+      (aiSettings.system_prompt || "").trim() ||
+      `You are ${aiSettings.persona_name || "Betty"}, a ${aiSettings.persona_tone || "friendly"} AI sales assistant.`;
 
-    const openaiMessages = [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: customerMessage },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: openaiMessages,
-      max_tokens: 300,
-      temperature: 0.7,
-    });
-
-    const aiReply = completion.choices[0]?.message?.content?.trim();
-    if (!aiReply) {
-      logger.error("OpenAI returned empty response");
-      return;
+    // ── Call OpenAI with timeout ───────────────────────────
+    let aiReply;
+    try {
+      const completion = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...history,
+          { role: "user", content: customerMessage },
+        ],
+        max_tokens: OPENAI_MAX_TOKENS,
+        temperature: OPENAI_TEMPERATURE,
+      });
+      aiReply = completion.choices?.[0]?.message?.content;
+      if (typeof aiReply === "string") aiReply = aiReply.trim();
+      if (!aiReply) {
+        logger.error("OpenAI returned empty response");
+        return;
+      }
+    } catch (err) {
+      logger.error(`OpenAI failed: ${err.message}`);
+      return; // Don't save empty reply
     }
 
+    // ── Send + save reply ──────────────────────────────────
     await sendWhatsAppMessage(customerPhone, aiReply);
+    try {
+      const saveResult = await supabase.from("conversations").insert({
+        profile_id: profile.id,
+        customer_id: customer.id,
+        role: "assistant",
+        message: aiReply,
+        status: messageStatus,
+      });
+      if (saveResult.error) {
+        logger.error(`Failed to save AI reply: ${saveResult.error.message}`);
+      }
+    } catch (err) {
+      logger.error(`Save AI reply failed: ${err.message}`);
+    }
 
-    await supabase.from("conversations").insert({
-      profile_id: profile.id,
-      customer_id: customer.id,
-      role: "assistant",
-      message: aiReply,
-      status: messageStatus,
-    });
-
+    // ── Create order if intent detected ────────────────────
     if (intentDetected) {
-      const { data: existingOrder } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("customer_id", customer.id)
-        .eq("status", "pending")
-        .single();
-      if (!existingOrder) {
-        await supabase.from("orders").insert({
-          profile_id: profile.id,
-          customer_id: customer.id,
-          items: [{ name: "Item from WhatsApp", quantity: 1 }],
-          total_amount: 0,
-          status: "pending",
-          notes: `Auto-detected intent from customer message`,
-        });
-        logger.info(`New pending order created for customer ${customer.id}`);
+      try {
+        const { data: existingOrder, error: queryErr } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("customer_id", customer.id)
+          .eq("status", "pending")
+          .maybeSingle();
+        if (queryErr) {
+          logger.error(`Order query failed: ${queryErr.message}`);
+        } else if (!existingOrder) {
+          const insertResult = await supabase.from("orders").insert({
+            profile_id: profile.id,
+            customer_id: customer.id,
+            items: [{ name: "Item from WhatsApp", quantity: 1 }],
+            total_amount: 0,
+            status: "pending",
+            notes: "Auto-detected purchase intent",
+          });
+          if (insertResult.error) {
+            logger.error(
+              `Failed to create order: ${insertResult.error.message}`,
+            );
+          }
+        }
+      } catch (err) {
+        logger.error(`Order creation failed: ${err.message}`);
       }
     }
 
+    // ── Schedule follow-up (atomic delete+insert) ──────────
     if (aiSettings.auto_followup) {
-      const scheduledAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
-      await supabase
-        .from("follow_ups")
-        .delete()
-        .eq("customer_id", customer.id)
-        .eq("status", "pending");
-      await supabase.from("follow_ups").insert({
-        profile_id: profile.id,
-        customer_id: customer.id,
-        scheduled_at: scheduledAt.toISOString(),
-        status: "pending",
-        message_preview: `Follow-up scheduled`,
-      });
-      logger.info(`Follow-up scheduled for customer ${customer.id}`);
+      try {
+        const scheduledAt = new Date(
+          Date.now() + FOLLOW_UP_DELAY_MS,
+        ).toISOString();
+        // Delete existing pending first, then insert — best-effort atomicity
+        await supabase
+          .from("follow_ups")
+          .delete()
+          .eq("customer_id", customer.id)
+          .eq("status", "pending");
+        await supabase.from("follow_ups").insert({
+          profile_id: profile.id,
+          customer_id: customer.id,
+          scheduled_at: scheduledAt,
+          status: "pending",
+          message_preview: "Scheduled follow-up",
+        });
+      } catch (err) {
+        logger.error(`Follow-up scheduling failed: ${err.message}`);
+      }
     }
+
+    logger.info(`Webhook processed for ${customerPhone}`);
   } catch (err) {
-    logger.error(`Webhook processing error: ${err.message}`, {
+    logger.error(`Webhook top-level error: ${err.message}`, {
       stack: err.stack,
     });
   }

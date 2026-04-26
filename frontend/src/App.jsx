@@ -34,6 +34,9 @@ export default function App() {
   const [profileId, setProfileId] = useState(null);
   const [badges, setBadges] = useState({ conversations: 3, orders: 2, followups: 1 });
   const [trialExpired, setTrialExpired] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const badgeIntervalRef = useRef(null);
+  const mountedRef = useRef(true);
 
   // ── LOAD PROFILE FROM SUPABASE ──
   useEffect(() => {
@@ -105,7 +108,6 @@ export default function App() {
         <div style={{ color: "#6366f1", fontSize: 13 }}>Loading {businessName}...</div>
       </div>
     );
-  }
 
   if (!user) return <LoginPage onLogin={signIn} />;
 

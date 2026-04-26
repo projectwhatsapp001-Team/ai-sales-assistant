@@ -1,5 +1,5 @@
-// src/components/pages/ConversationsPage.jsx
-import { useState, useEffect, useRef } from "react";
+// frontend/src/components/pages/ConversationsPage.jsx
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   Phone,
@@ -10,10 +10,8 @@ import {
   Clock,
   MessageCircle,
 } from "lucide-react";
-import { apiGet } from "../../lib/api";
+import { apiGet, getStreamUrl } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
-
-const API_URL = import.meta.env.VITE_API_URL || "";
 
 const MOCK_CONVERSATIONS = [
   {
@@ -35,13 +33,13 @@ const MOCK_CONVERSATIONS = [
       {
         id: 2,
         from: "ai",
-        text: "Hello! Yes, our premium package is available for GH₵450. Would you like to place an order?",
+        text: "Hello! Yes, our premium package is available for GH₵450. Would you like to order?",
         time: "10:31 AM",
       },
       {
         id: 3,
         from: "customer",
-        text: "I'm interested. Can you tell me more about what's included?",
+        text: "I'm interested. Can you tell me more?",
         time: "10:35 AM",
       },
     ],
@@ -95,7 +93,7 @@ const MOCK_CONVERSATIONS = [
       {
         id: 2,
         from: "ai",
-        text: "2 boxes at GH₵120 each = GH₵240. Shall I confirm?",
+        text: "2 boxes = GH₵240. Shall I confirm?",
         time: "10:16 AM",
       },
       {
@@ -130,12 +128,6 @@ const MOCK_CONVERSATIONS = [
         from: "ai",
         text: "No problem! I'll follow up tomorrow.",
         time: "9:46 AM",
-      },
-      {
-        id: 3,
-        from: "customer",
-        text: "Need to confirm with my partner first",
-        time: "10:00 AM",
       },
     ],
   },
@@ -187,35 +179,19 @@ function TypingBubble() {
           borderBottomRightRadius: 4,
         }}
       >
-        <span
-          className="pulse-dot rounded-full"
-          style={{
-            width: 6,
-            height: 6,
-            background: "#818cf8",
-            display: "inline-block",
-          }}
-        />
-        <span
-          className="pulse-dot rounded-full"
-          style={{
-            width: 6,
-            height: 6,
-            background: "#818cf8",
-            display: "inline-block",
-            animationDelay: "0.2s",
-          }}
-        />
-        <span
-          className="pulse-dot rounded-full"
-          style={{
-            width: 6,
-            height: 6,
-            background: "#818cf8",
-            display: "inline-block",
-            animationDelay: "0.4s",
-          }}
-        />
+        {[0, 0.2, 0.4].map((delay, i) => (
+          <span
+            key={i}
+            className="pulse-dot rounded-full"
+            style={{
+              width: 6,
+              height: 6,
+              background: "#818cf8",
+              display: "inline-block",
+              animationDelay: `${delay}s`,
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -297,6 +273,7 @@ function ConvItem({ data, isActive, onClick }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
   return (
     <div
       onClick={onClick}
@@ -411,7 +388,7 @@ export default function ConversationsPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const messagesEndRef = useRef(null);
-  const eventSourceRef = useRef(null);
+  const eventSourceRef = useRef(null); // ← track EventSource for cleanup
 
   // ── Fetch conversations ───────────────────────────────────
   useEffect(() => {
@@ -431,11 +408,11 @@ export default function ConversationsPage() {
     fetchConvs();
   }, []);
 
-  // ── Supabase Realtime — update thread when new message arrives
+  // ── Realtime thread updates ───────────────────────────────
   useEffect(() => {
     if (!activeId) return;
     const conv = conversations.find((c) => c.id === activeId);
-    if (!conv?.customer_id || conv.customer_id.startsWith("c")) return; // mock data
+    if (!conv?.customer_id || conv.customer_id.startsWith("c")) return;
 
     const channel = supabase
       .channel(`thread-${conv.customer_id}`)
@@ -462,14 +439,6 @@ export default function ConversationsPage() {
             ...prev,
             [activeId]: [...(prev[activeId] || []), newMsg],
           }));
-          // Also update the conversation list preview
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === activeId
-                ? { ...c, last_message: row.message, time: "just now" }
-                : c,
-            ),
-          );
         },
       )
       .subscribe();
@@ -477,10 +446,9 @@ export default function ConversationsPage() {
     return () => supabase.removeChannel(channel);
   }, [activeId, conversations]);
 
-  // ── Load thread for selected conversation ─────────────────
+  // ── Load thread ───────────────────────────────────────────
   useEffect(() => {
-    if (!activeId) return;
-    if (threadMessages[activeId]) return;
+    if (!activeId || threadMessages[activeId]) return;
     const conv = conversations.find((c) => c.id === activeId);
     if (!conv) return;
 
@@ -510,8 +478,29 @@ export default function ConversationsPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threadMessages, streamingText]);
 
+  // ── FIXED: Close EventSource when component unmounts or activeId changes
+  // This fixes the memory leak — old code never closed the EventSource
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [activeId]); // Close when switching conversations
+
+  // Also close on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
   // ── Send message + SSE stream ─────────────────────────────
-  function sendMessage() {
+  const sendMessage = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isStreaming) return;
     const conv = conversations.find((c) => c.id === activeId);
@@ -532,44 +521,57 @@ export default function ConversationsPage() {
     setIsStreaming(true);
     setStreamingText("");
 
-    const params = new URLSearchParams({
-      message: text,
-      customerId: conv.customer_id || conv.id,
-    });
-    const es = new EventSource(`${API_URL}/api/stream?${params}`);
-    eventSourceRef.current = es;
+    // Close any existing EventSource before opening a new one
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
 
-    es.addEventListener("token", (e) => {
-      setStreamingText((prev) => prev + JSON.parse(e.data).token);
-    });
+    try {
+      // Get authenticated stream URL
+      const url = await getStreamUrl(text, conv.customer_id || conv.id);
+      const es = new EventSource(url);
+      eventSourceRef.current = es;
 
-    es.addEventListener("done", (e) => {
-      const { fullReply } = JSON.parse(e.data);
-      const aiMsg = {
-        id: Date.now() + 1,
-        from: "ai",
-        text: fullReply || streamingText,
-        time: new Date().toLocaleTimeString("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setThreadMessages((prev) => ({
-        ...prev,
-        [activeId]: [...(prev[activeId] || []), aiMsg],
-      }));
-      setStreamingText("");
-      setIsStreaming(false);
-      es.close();
-    });
+      let accumulated = "";
 
-    es.addEventListener("error", () => {
-      if (!streamingText) {
-        const fallback = [
+      es.addEventListener("token", (e) => {
+        const { token } = JSON.parse(e.data);
+        accumulated += token;
+        setStreamingText(accumulated);
+      });
+
+      es.addEventListener("done", (e) => {
+        const { fullReply } = JSON.parse(e.data);
+        const reply = fullReply || accumulated;
+        const aiMsg = {
+          id: Date.now() + 1,
+          from: "ai",
+          text: reply,
+          time: new Date().toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setThreadMessages((prev) => ({
+          ...prev,
+          [activeId]: [...(prev[activeId] || []), aiMsg],
+        }));
+        setStreamingText("");
+        setIsStreaming(false);
+        es.close();
+        eventSourceRef.current = null;
+      });
+
+      es.addEventListener("error", () => {
+        // Fallback reply when backend is offline
+        const fallbacks = [
           "Thanks for reaching out! Let me check that for you.",
           "Sure! Happy to help with that.",
-          "Great question! Let me get those details.",
-        ][Math.floor(Math.random() * 3)];
+          "Great question! Let me get you those details.",
+        ];
+        const fallback =
+          fallbacks[Math.floor(Math.random() * fallbacks.length)];
         setThreadMessages((prev) => ({
           ...prev,
           [activeId]: [
@@ -585,14 +587,17 @@ export default function ConversationsPage() {
             },
           ],
         }));
-      }
-      setStreamingText("");
+        setStreamingText("");
+        setIsStreaming(false);
+        es.close();
+        eventSourceRef.current = null;
+      });
+    } catch (err) {
+      console.error("Stream error:", err);
       setIsStreaming(false);
-      es.close();
-    });
-  }
-
-  useEffect(() => () => eventSourceRef.current?.close(), []);
+      setStreamingText("");
+    }
+  }, [inputText, isStreaming, conversations, activeId]);
 
   const filtered = conversations.filter((c) => {
     const name = c.customers?.full_name || "";
@@ -606,7 +611,6 @@ export default function ConversationsPage() {
 
   const activeConversation = conversations.find((c) => c.id === activeId);
   const activeMessages = threadMessages[activeId] || [];
-
   const status = activeConversation?.needs_human
     ? "needs-human"
     : activeConversation?.status;
@@ -715,7 +719,7 @@ export default function ConversationsPage() {
       >
         {activeConversation ? (
           <>
-            {/* Chat header */}
+            {/* Header */}
             <div
               className="flex items-center justify-between px-5 py-3"
               style={{
@@ -802,9 +806,7 @@ export default function ConversationsPage() {
                     onClick={() =>
                       setConversations((prev) =>
                         prev.map((c) =>
-                          c.id === activeId
-                            ? { ...c, needs_human: false, status: "asking" }
-                            : c,
+                          c.id === activeId ? { ...c, needs_human: false } : c,
                         ),
                       )
                     }
