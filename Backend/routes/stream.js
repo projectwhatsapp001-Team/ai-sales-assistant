@@ -1,55 +1,28 @@
-// backend/routes/stream.js
+// Backend/routes/stream.js
 const express = require("express");
 const router = express.Router();
 const OpenAI = require("openai");
-const supabase = require("../supabase");
 const logger = require("../logger");
+const supabase = require("../supabase");
+const auth = require("../middleware/auth");
+const { getAiSettings, getConversationHistory } = require("../lib/profile");
+const {
+  OPENAI_MODEL,
+  OPENAI_STREAM_TOKENS,
+  OPENAI_TEMPERATURE,
+  OPENAI_TIMEOUT_MS,
+  MAX_STREAM_MESSAGE_LENGTH,
+  STREAM_HISTORY_LIMIT,
+} = require("../lib/constants");
+const { validateMessage } = require("../lib/validate");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const MAX_MESSAGE_LENGTH = 1000;
-
-async function getAiSettings(profileId) {
-  const { data } = await supabase
-    .from("ai_settings")
-    .select("*")
-    .eq("profile_id", profileId)
-    .single();
-  return (
-    data || {
-      persona_name: "Betty",
-      persona_tone: "friendly",
-      system_prompt:
-        "You are Betty, a friendly AI sales assistant. Keep replies short like texts, not essays.",
-      auto_mode: true,
-    }
-  );
-}
-
-async function getConversationHistory(customerId, profileId) {
-  const { data } = await supabase
-    .from("conversations")
-    .select("role, message")
-    .eq("customer_id", customerId)
-    .eq("profile_id", profileId)
-    .order("created_at", { ascending: false })
-    .limit(8);
-  return (data || []).reverse().map((row) => ({
-    role: row.role === "assistant" ? "assistant" : "user",
-    content: row.message,
-  }));
-}
-
-async function getProfile() {
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .limit(1)
-    .single();
-  return data;
-}
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: OPENAI_TIMEOUT_MS,
+});
 
 async function setTyping(profileId, customerId, isTyping) {
+  if (!profileId || !customerId) return;
   try {
     if (isTyping) {
       await supabase
@@ -65,99 +38,139 @@ async function setTyping(profileId, customerId, isTyping) {
         .eq("customer_id", customerId);
     }
   } catch (err) {
-    logger.warn(`Typing indicator update failed: ${err.message}`);
+    logger.warn(`Typing indicator failed: ${err.message}`);
   }
 }
 
-// GET /api/stream
-router.get("/", async (req, res) => {
+// Auth middleware applied explicitly on this route
+router.get("/", auth, async (req, res) => {
   const { message, customerId } = req.query;
 
-  // ── Input validation ─────────────────────────────────────
-  if (!message) {
-    return res.status(400).json({ error: "message is required" });
-  }
-  if (message.length > MAX_MESSAGE_LENGTH) {
+  // Validate message
+  const msgErr = validateMessage(message);
+  if (msgErr) return res.status(400).json({ error: msgErr });
+  if (message.length > MAX_STREAM_MESSAGE_LENGTH) {
     return res
       .status(400)
       .json({
-        error: `Message too long. Max ${MAX_MESSAGE_LENGTH} characters.`,
+        error: `Message too long. Max ${MAX_STREAM_MESSAGE_LENGTH} chars.`,
       });
   }
+  if (
+    !customerId ||
+    typeof customerId !== "string" ||
+    customerId.trim() === ""
+  ) {
+    return res.status(400).json({ error: "customerId is required" });
+  }
 
-  // ── SSE headers ──────────────────────────────────────────
+  // SSE headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", process.env.APP_URL || "*");
   res.flushHeaders();
 
+  let clientConnected = true;
+  let streamAbortController = new AbortController();
+
+  // Remove listener on cleanup, not just on "close"
+  function onClose() {
+    clientConnected = false;
+    streamAbortController.abort();
+    logger.info(`Client disconnected during stream`);
+  }
+  req.once("close", onClose);
+
   function sendEvent(event, data) {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (!clientConnected) return;
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch (_) {}
   }
 
-  try {
-    const profile = await getProfile();
-    const aiSettings = profile ? await getAiSettings(profile.id) : null;
+  const profileId = req.profileId;
 
-    if (profile && customerId) await setTyping(profile.id, customerId, true);
+  try {
+    const [aiSettings, history] = await Promise.all([
+      getAiSettings(profileId),
+      getConversationHistory(customerId, profileId, STREAM_HISTORY_LIMIT),
+    ]);
+
+    await setTyping(profileId, customerId, true);
     sendEvent("typing", { isTyping: true });
 
-    const history =
-      profile && customerId
-        ? await getConversationHistory(customerId, profile.id)
-        : [];
-
     const systemPrompt =
-      aiSettings?.system_prompt ||
-      "You are Betty, a friendly AI sales assistant. Keep replies short like texts — max 2-3 sentences.";
+      (aiSettings?.system_prompt || "").trim() ||
+      "You are Betty, a friendly AI sales assistant. Keep replies short — max 2-3 sentences.";
 
     const messages = [
       { role: "system", content: systemPrompt },
       ...history,
-      { role: "user", content: message },
+      { role: "user", content: message.trim() },
     ];
 
     let fullReply = "";
-    const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      max_tokens: 150,
-      temperature: 0.7,
-      stream: true,
-    });
 
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content || "";
-      if (token) {
-        fullReply += token;
-        sendEvent("token", { token });
+    try {
+      const stream = await openai.chat.completions.create(
+        {
+          model: OPENAI_MODEL,
+          messages,
+          max_tokens: OPENAI_STREAM_TOKENS,
+          temperature: OPENAI_TEMPERATURE,
+          stream: true,
+        },
+        { signal: streamAbortController.signal },
+      );
+
+      for await (const chunk of stream) {
+        if (!clientConnected) break;
+        const token = chunk.choices?.[0]?.delta?.content;
+        if (typeof token === "string" && token) {
+          fullReply += token;
+          sendEvent("token", { token });
+        }
+      }
+    } catch (aiErr) {
+      if (aiErr.name === "AbortError") {
+        logger.info("Stream aborted by client disconnect");
+      } else {
+        logger.error(`OpenAI stream error: ${aiErr.message}`);
+        sendEvent("error", {
+          message: "Betty is unavailable. Please try again.",
+        });
+      }
+      await setTyping(profileId, customerId, false);
+      req.removeListener("close", onClose);
+      return res.end();
+    }
+
+    sendEvent("done", { fullReply: fullReply || "" });
+    await setTyping(profileId, customerId, false);
+
+    // Save reply only if non-empty
+    if (fullReply.trim() && profileId && customerId) {
+      try {
+        await supabase.from("conversations").insert({
+          profile_id: profileId,
+          customer_id: customerId,
+          role: "assistant",
+          message: fullReply.trim(),
+          status: "browsing",
+        });
+      } catch (err) {
+        logger.error(`Save stream reply failed: ${err.message}`);
       }
     }
 
-    sendEvent("done", { fullReply });
-
-    if (profile && customerId) await setTyping(profile.id, customerId, false);
-
-    if (profile && customerId && fullReply) {
-      await supabase.from("conversations").insert({
-        profile_id: profile.id,
-        customer_id: customerId,
-        role: "assistant",
-        message: fullReply,
-        status: "browsing",
-      });
-    }
-
-    logger.info(
-      `Stream complete for customer ${customerId} — ${fullReply.length} chars`,
-    );
-    res.end();
+    logger.info(`Stream complete — ${fullReply.length} chars`);
   } catch (err) {
-    logger.error(`SSE Stream error: ${err.message}`);
-    sendEvent("error", {
-      message: "Betty is unavailable right now. Please try again.",
-    });
+    logger.error(`Stream route error: ${err.message}`);
+    sendEvent("error", { message: "Something went wrong. Please try again." });
+    await setTyping(profileId, customerId, false).catch(() => {});
+  } finally {
+    req.removeListener("close", onClose);
     res.end();
   }
 });
