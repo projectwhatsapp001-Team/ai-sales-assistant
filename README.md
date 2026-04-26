@@ -179,3 +179,4 @@ salesbot/
 6. Each token fires a `token` event → frontend appends to streaming bubble
 7. When done, fires `done` event → bubble becomes permanent message
 8. Full reply saved to Supabase
+"# Deploy" 
