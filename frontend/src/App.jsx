@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Component } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { supabase } from "./lib/supabase";
 import LoginPage from "./components/pages/LoginPage";
+import SignupPage from "./components/pages/SignupPage"; // ← ADDED
 import OnboardingModal from "./components/pages/OnboardingModal";
 import Sidebar from "./components/layout/Sidebar";
 import TopBar from "./components/layout/TopBar";
@@ -106,6 +107,7 @@ export default function App() {
   const { user, loading, signIn, signOut } = useAuth();
   const [page, setPage] = useState("overview");
   const [sidebarOpen, setSidebar] = useState(false);
+  const [authView, setAuthView] = useState("login"); // ← ADDED: "login" | "signup"
   const [businessName, setBusinessName] = useState("SalesBot");
   const [userName, setUserName] = useState("Team Lead");
   const [profileId, setProfileId] = useState(null);
@@ -126,6 +128,7 @@ export default function App() {
     };
   }, []);
 
+  // Load profile data when user logs in
   useEffect(() => {
     if (!user) return;
     supabase
@@ -138,15 +141,20 @@ export default function App() {
         setProfileId(data.id);
         setBusinessName(data.business_name || "SalesBot");
         setUserName(data.full_name || "Team Lead");
+
+        // Show onboarding if business name not set yet
         const isNew =
           !data.business_name || data.business_name === "My Business";
         if (isNew) setShowOnboarding(true);
+
+        // Check trial/subscription status
         const now = new Date();
         const trialEndsAt = data.trial_ends_at
           ? new Date(data.trial_ends_at)
           : null;
         const isPaid = ["starter", "pro"].includes(data.plan);
         const isInTrial = trialEndsAt != null && now < trialEndsAt;
+
         if (!isPaid && !isInTrial) {
           setTrialExpired(true);
           setPage("billing");
@@ -155,6 +163,7 @@ export default function App() {
       .catch((err) => console.error("Profile load error:", err.message));
   }, [user]);
 
+  // Real-time profile updates (business name changes in Settings reflect instantly)
   useEffect(() => {
     if (!user || !profileId) return;
     const channel = supabase
@@ -180,9 +189,11 @@ export default function App() {
     };
   }, [user, profileId]);
 
+  // Fetch sidebar badge counts every 60 seconds
   useEffect(() => {
     if (!user || !profileId) return;
     if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
+
     async function fetchBadges() {
       if (!mountedRef.current || document.hidden) return;
       try {
@@ -216,6 +227,7 @@ export default function App() {
         console.error("Badge error:", err.message);
       }
     }
+
     fetchBadges();
     badgeIntervalRef.current = setInterval(fetchBadges, 60000);
     return () => {
@@ -223,6 +235,7 @@ export default function App() {
     };
   }, [user, profileId]);
 
+  // ── Loading screen ─────────────────────────────────────────
   if (loading) {
     return (
       <div
@@ -262,14 +275,24 @@ export default function App() {
     );
   }
 
+  // ── Not logged in — show Login OR Signup ───────────────────
+  // CHANGED: was just <LoginPage /> — now switches between login and signup
   if (!user) {
     return (
       <ErrorBoundary>
-        <LoginPage onLogin={signIn} />
+        {authView === "signup" ? (
+          <SignupPage onSwitchToLogin={() => setAuthView("login")} />
+        ) : (
+          <LoginPage
+            onLogin={signIn}
+            onSwitchToSignup={() => setAuthView("signup")} // ← ADDED
+          />
+        )}
       </ErrorBoundary>
     );
   }
 
+  // ── Logged in — show dashboard ─────────────────────────────
   const userInitials = userName
     .split(" ")
     .map((n) => n[0])
@@ -286,6 +309,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      {/* Onboarding modal — shown to new signups */}
       {showOnboarding && (
         <OnboardingModal
           userId={user.id}
@@ -298,6 +322,7 @@ export default function App() {
         />
       )}
 
+      {/* Trial expired overlay */}
       {trialExpired && (
         <div
           style={{
