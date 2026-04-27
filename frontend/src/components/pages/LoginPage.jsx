@@ -3,9 +3,8 @@ import { useState } from "react";
 import { Zap, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, onSwitchToSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -15,12 +14,10 @@ export default function LoginPage({ onLogin }) {
 
   function validate() {
     const errors = {};
-    if (!email.trim() || !EMAIL_RE.test(email.trim())) {
+    if (!email.trim() || !EMAIL_RE.test(email.trim()))
       errors.email = "Enter a valid email address";
-    }
-    if (!password || password.length < MIN_PASSWORD_LENGTH) {
-      errors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
-    }
+    if (!password || password.length < 8)
+      errors.password = "Password must be at least 8 characters";
     return errors;
   }
 
@@ -30,12 +27,10 @@ export default function LoginPage({ onLogin }) {
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-
     setLoading(true);
     try {
       await onLogin(email.trim(), password);
     } catch (err) {
-      // Map common Supabase errors to friendly messages without exposing internals
       const msg = err?.message || "";
       if (
         msg.includes("Invalid login credentials") ||
@@ -45,9 +40,7 @@ export default function LoginPage({ onLogin }) {
       } else if (msg.includes("Email not confirmed")) {
         setError("Please check your email and confirm your account first.");
       } else if (msg.includes("Too many requests")) {
-        setError(
-          "Too many login attempts. Please wait a few minutes and try again.",
-        );
+        setError("Too many login attempts. Please wait a few minutes.");
       } else {
         setError("Login failed. Please check your connection and try again.");
       }
@@ -65,6 +58,7 @@ export default function LoginPage({ onLogin }) {
     color: "#f8fafc",
     fontSize: 14,
     outline: "none",
+    boxSizing: "border-box",
   });
 
   return (
@@ -75,6 +69,7 @@ export default function LoginPage({ onLogin }) {
         alignItems: "center",
         justifyContent: "center",
         background: "#07070a",
+        padding: "0 16px",
       }}
     >
       <div
@@ -82,7 +77,7 @@ export default function LoginPage({ onLogin }) {
           width: "100%",
           maxWidth: 400,
           padding: 32,
-          borderRadius: 16,
+          borderRadius: 20,
           background: "#18181f",
           border: "1px solid #2a2a35",
         }}
@@ -119,7 +114,7 @@ export default function LoginPage({ onLogin }) {
             marginBottom: 8,
           }}
         >
-          Welcome to SalesBot
+          Welcome back
         </h1>
         <p
           style={{
@@ -273,6 +268,31 @@ export default function LoginPage({ onLogin }) {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <p
+          style={{
+            fontSize: 13,
+            color: "#64748b",
+            textAlign: "center",
+            marginTop: 24,
+          }}
+        >
+          Don't have an account?{" "}
+          <button
+            onClick={onSwitchToSignup}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#818cf8",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: "underline",
+            }}
+          >
+            Start free trial
+          </button>
+        </p>
       </div>
     </div>
   );
