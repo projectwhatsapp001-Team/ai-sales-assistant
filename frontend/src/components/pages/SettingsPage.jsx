@@ -13,6 +13,8 @@ import {
   LogOut,
   Trash2,
   Loader2,
+  ChevronLeft,
+  Key,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { apiGet, apiPatch } from "../../lib/api";
@@ -20,49 +22,48 @@ import { apiGet, apiPatch } from "../../lib/api";
 const SECTIONS = [
   {
     id: "ai",
-    label: "Betty AI",
+    label: "Betty AI Configuration",
     icon: Bot,
-    description: "Persona, tone, auto-reply settings",
+    description: "Persona, tone, and automated reply logic",
   },
   {
     id: "profile",
-    label: "Profile",
+    label: "Personal Profile",
     icon: User,
-    description: "Name, email, phone",
+    description: "Your name, email, and contact details",
   },
   {
     id: "notifications",
-    label: "Notifications",
+    label: "System Alerts",
     icon: Bell,
-    description: "Alerts for orders, handoffs, follow-ups",
+    description: "Real-time updates and daily summaries",
   },
   {
     id: "security",
-    label: "Security",
+    label: "Security & API",
     icon: Shield,
-    description: "Password, API keys",
+    description: "Credentials and integration keys",
   },
   {
     id: "payments",
-    label: "Payment Setup",
+    label: "Payment Gateways",
     icon: CreditCard,
-    description: "Paystack, Flutterwave, Stripe",
+    description: "Connect Paystack or Stripe",
   },
   {
     id: "business",
-    label: "Business Info",
+    label: "Business Details",
     icon: Globe,
-    description: "Company, currency, timezone",
+    description: "Company identity and regional settings",
   },
 ];
 
 export default function SettingsPage({ profileId }) {
   const [activeSection, setActiveSection] = useState(null);
-  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [saveState, setSaveState] = useState("idle");
   const [aiSettings, setAiSettings] = useState(null);
   const [profileData, setProfileData] = useState(null);
 
-  // ── Load settings from Supabase on mount ─────────────────
   useEffect(() => {
     async function loadSettings() {
       if (!profileId) return;
@@ -85,7 +86,6 @@ export default function SettingsPage({ profileId }) {
     loadSettings();
   }, [profileId]);
 
-  // ── Save AI settings to Supabase ─────────────────────────
   async function saveAiSettings(updates) {
     setSaveState("saving");
     try {
@@ -94,37 +94,26 @@ export default function SettingsPage({ profileId }) {
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2500);
     } catch (err) {
-      console.error("Save error:", err);
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 2500);
     }
   }
 
-  // ── Save profile to Supabase ──────────────────────────────
   async function saveProfile(updates) {
-  setSaveState("saving");
-  try {
-    await supabase.from("profiles").update(updates).eq("id", profileId);
-    setProfileData((prev) => ({ ...prev, ...updates }));
-    
-    // ── ALSO save to localStorage for instant sidebar update ──
-    if (updates.business_name) {
-      localStorage.setItem("betty-business-name", updates.business_name);
+    setSaveState("saving");
+    try {
+      await supabase.from("profiles").update(updates).eq("id", profileId);
+      setProfileData((prev) => ({ ...prev, ...updates }));
+      if (updates.business_name) localStorage.setItem("betty-business-name", updates.business_name);
+      if (updates.full_name) localStorage.setItem("betty-user-name", updates.full_name);
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2500);
+    } catch (err) {
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2500);
     }
-    if (updates.full_name) {
-      localStorage.setItem("betty-user-name", updates.full_name);
-    }
-    
-    setSaveState("saved");
-    setTimeout(() => setSaveState("idle"), 2500);
-  } catch (err) {
-    console.error("Profile save error:", err);
-    setSaveState("error");
-    setTimeout(() => setSaveState("idle"), 2500);
   }
-}
 
-  // ── Section renderer ──────────────────────────────────────
   if (activeSection) {
     return (
       <SectionDetail
@@ -135,172 +124,65 @@ export default function SettingsPage({ profileId }) {
         profileData={profileData}
         onSaveAi={saveAiSettings}
         onSaveProfile={saveProfile}
-        profileId={profileId}
       />
     );
   }
 
   return (
-    <div className="fade-up max-w-xl">
-      <div className="mb-6">
-        <p
-          style={{
-            fontFamily: "Syne, sans-serif",
-            fontWeight: 700,
-            fontSize: 18,
-            color: "#f8fafc",
-          }}
-        >
-          Settings
-        </p>
-        <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-          Manage Betty and your account
-        </p>
+    <div className="fade-up max-w-2xl pb-10">
+      <div className="mb-10">
+        <h1 className="font-syne font-bold text-2xl text-slate-50 tracking-tight">Account Settings</h1>
+        <p className="text-sm text-slate-500 mt-1 font-medium">Customize your SalesBot experience and manage preferences.</p>
       </div>
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {SECTIONS.map((section) => {
           const Icon = section.icon;
           return (
             <button
               key={section.id}
               onClick={() => setActiveSection(section)}
-              className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-colors cursor-pointer text-left"
-              style={{ background: "#18181f", border: "1px solid #2a2a35" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#22222c";
-                e.currentTarget.style.borderColor = "#3a3a45";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#18181f";
-                e.currentTarget.style.borderColor = "#2a2a35";
-              }}
+              className="w-full flex flex-col gap-4 p-6 rounded-3xl transition-all duration-300 cursor-pointer text-left bg-slate-900 border border-slate-800 hover:bg-slate-800/40 hover:-translate-y-1 hover:border-slate-700 group shadow-xl shadow-black/5"
             >
-              <div
-                className="flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: "rgba(99,102,241,0.1)",
-                  border: "1px solid rgba(99,102,241,0.2)",
-                }}
-              >
-                <Icon size={18} style={{ color: "#818cf8" }} />
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center justify-center rounded-2xl flex-shrink-0 w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
+                  <Icon size={20} className="text-indigo-400" />
+                </div>
+                <ChevronRight size={16} className="text-slate-600 group-hover:text-slate-400 transition-colors" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: section.id === "ai" ? "#818cf8" : "#f8fafc",
-                  }}
-                >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-50 group-hover:text-indigo-400 transition-colors">
                   {section.label}
-                  {section.id === "ai" && (
-                    <span
-                      className="ml-2 px-1.5 py-0.5 rounded"
-                      style={{
-                        background: "rgba(99,102,241,0.15)",
-                        color: "#818cf8",
-                        fontSize: 10,
-                        fontWeight: 600,
-                      }}
-                    >
-                      CORE
-                    </span>
-                  )}
                 </p>
-                <p
-                  className="truncate"
-                  style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}
-                >
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed font-medium">
                   {section.description}
                 </p>
               </div>
-              <ChevronRight
-                size={16}
-                style={{ color: "#64748b", flexShrink: 0 }}
-              />
             </button>
           );
         })}
       </div>
 
-      {/* Sign out / delete */}
-      <div className="mt-6 space-y-2">
+      <div className="mt-10 pt-8 border-t border-slate-800 flex flex-col sm:flex-row gap-4">
         <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-          }}
-          className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-colors cursor-pointer text-left"
-          style={{ background: "#18181f", border: "1px solid #2a2a35" }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#22222c";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#18181f";
-          }}
+          onClick={() => supabase.auth.signOut()}
+          className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-2xl transition-all font-bold text-sm bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-500/5 hover:border-rose-500/20 active:scale-95"
         >
-          <div
-            className="flex items-center justify-center rounded-lg flex-shrink-0"
-            style={{
-              width: 40,
-              height: 40,
-              background: "rgba(244,63,94,0.1)",
-              border: "1px solid rgba(244,63,94,0.2)",
-            }}
-          >
-            <LogOut size={18} style={{ color: "#f43f5e" }} />
-          </div>
-          <div className="flex-1">
-            <p style={{ fontSize: 14, fontWeight: 500, color: "#f43f5e" }}>
-              Sign Out
-            </p>
-            <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-              Log out of this account
-            </p>
-          </div>
+          <LogOut size={18} />
+          Sign Out
         </button>
 
         <button
-          className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-colors cursor-pointer text-left"
-          style={{
-            background: "rgba(244,63,94,0.05)",
-            border: "1px solid rgba(244,63,94,0.2)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(244,63,94,0.1)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(244,63,94,0.05)";
-          }}
+          className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-2xl transition-all font-bold text-sm bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 active:scale-95 shadow-lg shadow-rose-500/5"
         >
-          <div
-            className="flex items-center justify-center rounded-lg flex-shrink-0"
-            style={{
-              width: 40,
-              height: 40,
-              background: "rgba(244,63,94,0.1)",
-              border: "1px solid rgba(244,63,94,0.2)",
-            }}
-          >
-            <Trash2 size={18} style={{ color: "#f43f5e" }} />
-          </div>
-          <div className="flex-1">
-            <p style={{ fontSize: 14, fontWeight: 500, color: "#f43f5e" }}>
-              Delete Account
-            </p>
-            <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-              Permanently remove all data
-            </p>
-          </div>
+          <Trash2 size={18} />
+          Delete Account
         </button>
       </div>
     </div>
   );
 }
 
-// ── Section detail view ───────────────────────────────────────
 function SectionDetail({
   section,
   onBack,
@@ -312,354 +194,189 @@ function SectionDetail({
 }) {
   const [localAi, setLocalAi] = useState(aiSettings || {});
   const [localProfile, setLocalProfile] = useState(profileData || {});
-
   const Icon = section.icon;
 
   function handleSave() {
     if (section.id === "ai") onSaveAi(localAi);
-    if (section.id === "profile") onSaveProfile(localProfile);
-    if (section.id === "business") onSaveProfile(localProfile);
+    else if (["profile", "business"].includes(section.id)) onSaveProfile(localProfile);
   }
 
-  const SaveBtn = () => (
-    <button
-      onClick={handleSave}
-      disabled={saveState === "saving"}
-      className="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer"
-      style={{
-        background:
-          saveState === "saved"
-            ? "#6366f1"
-            : saveState === "error"
-              ? "rgba(244,63,94,0.15)"
-              : "rgba(99,102,241,0.15)",
-        color:
-          saveState === "saved"
-            ? "#fff"
-            : saveState === "error"
-              ? "#f43f5e"
-              : "#818cf8",
-        border: "1px solid rgba(99,102,241,0.3)",
-        fontSize: 13,
-        fontWeight: 600,
-        opacity: saveState === "saving" ? 0.7 : 1,
-      }}
-    >
-      {saveState === "saving" && <Loader2 size={14} className="animate-spin" />}
-      {saveState === "saved" && <CheckCircle size={14} />}
-      {saveState === "idle" || saveState === "error" ? (
-        <Save size={14} />
-      ) : null}
-      {saveState === "saving"
-        ? "Saving..."
-        : saveState === "saved"
-          ? "Saved!"
-          : saveState === "error"
-            ? "Error — retry"
-            : "Save Changes"}
-    </button>
-  );
+  const isSaving = saveState === "saving";
+  const isSaved = saveState === "saved";
+  const isError = saveState === "error";
 
   return (
     <div className="fade-up max-w-xl">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 mb-6 cursor-pointer"
-        style={{
-          background: "none",
-          border: "none",
-          color: "#64748b",
-          fontSize: 13,
-        }}
+        className="flex items-center gap-2 mb-8 text-xs font-bold text-slate-500 hover:text-indigo-400 transition-colors"
       >
-        ← Back to Settings
+        <ChevronLeft size={16} /> Back to Overview
       </button>
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div
-            className="flex items-center justify-center rounded-lg"
-            style={{
-              width: 36,
-              height: 36,
-              background: "rgba(99,102,241,0.1)",
-              border: "1px solid rgba(99,102,241,0.2)",
-            }}
-          >
-            <Icon size={18} style={{ color: "#818cf8" }} />
-          </div>
-          <p
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontWeight: 700,
-              fontSize: 18,
-              color: "#f8fafc",
-            }}
-          >
-            {section.label}
-          </p>
+      <div className="mb-10 flex items-center gap-6">
+        <div className="flex items-center justify-center rounded-3xl w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 shadow-inner">
+          <Icon size={28} className="text-indigo-400" />
         </div>
-        <p style={{ fontSize: 12, color: "#64748b" }}>{section.description}</p>
+        <div>
+          <h2 className="font-syne font-bold text-2xl text-slate-50 tracking-tight">{section.label}</h2>
+          <p className="text-sm text-slate-500 mt-1 font-medium">{section.description}</p>
+        </div>
       </div>
 
-      <div
-        className="rounded-xl p-5 space-y-4"
-        style={{ background: "#18181f", border: "1px solid #2a2a35" }}
-      >
-        {/* ── Betty AI ─────────────────────────────────── */}
+      <div className="rounded-3xl p-8 space-y-8 bg-slate-900 border border-slate-800 shadow-2xl">
         {section.id === "ai" && (
           <>
-            <Field
-              label="AI Name"
-              value={localAi.persona_name || "Betty"}
-              onChange={(v) => setLocalAi((p) => ({ ...p, persona_name: v }))}
-            />
-            <SelectField
-              label="Response Tone"
-              value={localAi.persona_tone || "friendly"}
-              options={[
-                { value: "friendly", label: "Friendly" },
-                { value: "professional", label: "Professional" },
-                { value: "formal", label: "Formal" },
-                { value: "playful", label: "Playful" },
-              ]}
-              onChange={(v) => setLocalAi((p) => ({ ...p, persona_tone: v }))}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <Field
+                label="AI Persona Name"
+                value={localAi.persona_name || "Betty"}
+                onChange={(v) => setLocalAi((p) => ({ ...p, persona_name: v }))}
+              />
+              <SelectField
+                label="Conversation Tone"
+                value={localAi.persona_tone || "friendly"}
+                options={[
+                  { value: "friendly", label: "Friendly & Warm" },
+                  { value: "professional", label: "Professional & Precise" },
+                  { value: "formal", label: "Formal & Resolute" },
+                  { value: "playful", label: "Playful & Energetic" },
+                ]}
+                onChange={(v) => setLocalAi((p) => ({ ...p, persona_tone: v }))}
+              />
+            </div>
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "#94a3b8",
-                  marginBottom: 6,
-                }}
-              >
-                System Prompt
+              <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3">
+                System Intelligence Directive
               </label>
               <textarea
                 value={localAi.system_prompt || ""}
-                onChange={(e) =>
-                  setLocalAi((p) => ({ ...p, system_prompt: e.target.value }))
-                }
-                rows={4}
-                placeholder="You are Betty, a friendly AI sales assistant..."
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  background: "#0f0f14",
-                  border: "1px solid #2a2a35",
-                  borderRadius: 8,
-                  color: "#f8fafc",
-                  fontSize: 13,
-                  outline: "none",
-                  resize: "vertical",
-                  lineHeight: 1.6,
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#6366f1";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#2a2a35";
-                }}
+                onChange={(e) => setLocalAi((p) => ({ ...p, system_prompt: e.target.value }))}
+                rows={5}
+                placeholder="You are SalesBot's core intelligence..."
+                className="w-full px-5 py-4 bg-slate-950 border border-slate-800 rounded-2xl text-[13px] text-slate-50 outline-none resize-none leading-relaxed focus:border-indigo-500/50 transition-all shadow-inner"
               />
-              <p style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                Instructions that tell Betty how to behave with customers.
+              <p className="text-[10px] text-slate-500 mt-3 font-medium flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                This prompt defines Betty's knowledge base and boundaries.
               </p>
             </div>
-            <div
-              className="space-y-3 p-4 rounded-lg"
-              style={{ background: "#0f0f14", border: "1px solid #2a2a35" }}
-            >
+            <div className="space-y-4 p-6 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner">
               <Toggle
-                label="Auto-Reply — Betty responds automatically"
+                label="Autonomous Mode"
                 checked={localAi.auto_mode !== false}
                 onChange={(v) => setLocalAi((p) => ({ ...p, auto_mode: v }))}
               />
-              <div style={{ height: 1, background: "#2a2a35" }} />
+              <div className="h-px bg-slate-800/50" />
               <Toggle
-                label="Auto Follow-up — Chase abandoned carts"
+                label="Proactive Follow-ups"
                 checked={localAi.auto_followup !== false}
-                onChange={(v) =>
-                  setLocalAi((p) => ({ ...p, auto_followup: v }))
-                }
-              />
-              <div style={{ height: 1, background: "#2a2a35" }} />
-              <Toggle
-                label="Human Handoff — Escalate when stuck"
-                checked={true}
-                onChange={() => {}}
+                onChange={(v) => setLocalAi((p) => ({ ...p, auto_followup: v }))}
               />
             </div>
           </>
         )}
 
-        {/* ── Profile ──────────────────────────────────── */}
         {section.id === "profile" && (
-          <>
+          <div className="space-y-6">
             <Field
               label="Full Name"
               value={localProfile.full_name || ""}
               onChange={(v) => setLocalProfile((p) => ({ ...p, full_name: v }))}
             />
             <Field
-              label="Email"
+              label="Email Address"
               value={localProfile.email || ""}
               onChange={(v) => setLocalProfile((p) => ({ ...p, email: v }))}
               type="email"
             />
             <Field
-              label="Phone"
+              label="WhatsApp Phone"
               value={localProfile.phone_number || ""}
-              onChange={(v) =>
-                setLocalProfile((p) => ({ ...p, phone_number: v }))
-              }
-            />
-          </>
-        )}
-
-        {/* ── Notifications ──────────────────────────── */}
-        {section.id === "notifications" && (
-          <div className="space-y-3">
-            <Toggle
-              label="New order alert"
-              checked={true}
-              onChange={() => {}}
-            />
-            <Toggle
-              label="Human handoff alert"
-              checked={true}
-              onChange={() => {}}
-            />
-            <Toggle
-              label="Follow-up reminder"
-              checked={true}
-              onChange={() => {}}
-            />
-            <Toggle
-              label="Daily summary email"
-              checked={false}
-              onChange={() => {}}
+              onChange={(v) => setLocalProfile((p) => ({ ...p, phone_number: v }))}
             />
           </div>
         )}
 
-        {/* ── Security ─────────────────────────────── */}
+        {section.id === "notifications" && (
+          <div className="space-y-4 p-6 rounded-2xl bg-slate-950 border border-slate-800">
+            <Toggle label="Push: New Order Alerts" checked={true} onChange={() => {}} />
+            <div className="h-px bg-slate-800/50" />
+            <Toggle label="Push: Human Handoff Requests" checked={true} onChange={() => {}} />
+            <div className="h-px bg-slate-800/50" />
+            <Toggle label="Email: Daily Performance Summary" checked={false} onChange={() => {}} />
+          </div>
+        )}
+
         {section.id === "security" && (
-          <>
-            <Field
-              label="Current Password"
-              type="password"
-              value=""
-              onChange={() => {}}
-            />
-            <Field
-              label="New Password"
-              type="password"
-              value=""
-              onChange={() => {}}
-              placeholder="Enter new password"
-            />
-            <div className="pt-2">
-              <p style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
-                API Key
-              </p>
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                style={{ background: "#0f0f14", border: "1px solid #2a2a35" }}
-              >
-                <code
-                  style={{
-                    fontSize: 12,
-                    color: "#818cf8",
-                    fontFamily: "monospace",
-                    flex: 1,
-                  }}
-                >
-                  sk_live_xxxxxxxxxxxxxxxx
-                </code>
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <Field label="Current Password" type="password" value="" onChange={() => {}} />
+              <Field label="New Password" type="password" value="" onChange={() => {}} />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-3">Live API Intelligence Key</p>
+              <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-slate-950 border border-slate-800 shadow-inner group">
+                <Key size={16} className="text-indigo-400/50 group-hover:text-indigo-400 transition-colors" />
+                <code className="text-xs text-indigo-400 font-mono flex-1">sk_live_••••••••••••••••</code>
                 <button
-                  onClick={() =>
-                    navigator.clipboard.writeText("sk_live_xxxxxxxxxxxxxxxx")
-                  }
-                  className="px-2 py-1 rounded cursor-pointer"
-                  style={{
-                    background: "rgba(99,102,241,0.1)",
-                    color: "#818cf8",
-                    border: "none",
-                    fontSize: 11,
-                  }}
+                  onClick={() => navigator.clipboard.writeText("sk_live_secret_key")}
+                  className="px-4 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-400 text-[10px] font-bold hover:bg-indigo-500/20 transition-all border border-indigo-500/20 active:scale-95"
                 >
-                  Copy
+                  Copy Key
                 </button>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* ── Payments ─────────────────────────────── */}
-        {section.id === "payments" && (
-          <>
-            <Field
-              label="Paystack Secret Key"
-              value=""
-              onChange={() => {}}
-              placeholder="sk_live_..."
-            />
-            <Field
-              label="Flutterwave Secret Key"
-              value=""
-              onChange={() => {}}
-              placeholder="FLWSECK_TEST-..."
-            />
-            <Field
-              label="Stripe Secret Key"
-              value=""
-              onChange={() => {}}
-              placeholder="sk_live_..."
-            />
-            <p style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-              Keys are encrypted after saving.
-            </p>
-          </>
-        )}
-
-        {/* ── Business ─────────────────────────────── */}
         {section.id === "business" && (
-          <>
+          <div className="space-y-6">
             <Field
-              label="Company Name"
+              label="Legal Business Name"
               value={localProfile.business_name || ""}
-              onChange={(v) =>
-                setLocalProfile((p) => ({ ...p, business_name: v }))
-              }
+              onChange={(v) => setLocalProfile((p) => ({ ...p, business_name: v }))}
             />
-            <SelectField
-              label="Default Currency"
-              value={localProfile.currency || "GHS"}
-              options={[
-                { value: "GHS", label: "Ghana Cedi (GH₵)" },
-                { value: "NGN", label: "Nigerian Naira (₦)" },
-                { value: "USD", label: "US Dollar ($)" },
-              ]}
-              onChange={(v) => setLocalProfile((p) => ({ ...p, currency: v }))}
-            />
-            <SelectField
-              label="Timezone"
-              value={localProfile.timezone || "Africa/Accra"}
-              options={[
-                { value: "Africa/Accra", label: "Accra (GMT)" },
-                { value: "Africa/Lagos", label: "Lagos (WAT)" },
-              ]}
-              onChange={(v) => setLocalProfile((p) => ({ ...p, timezone: v }))}
-            />
-          </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <SelectField
+                label="Primary Currency"
+                value={localProfile.currency || "GHS"}
+                options={[
+                  { value: "GHS", label: "Ghana Cedi (GH₵)" },
+                  { value: "NGN", label: "Nigerian Naira (₦)" },
+                  { value: "USD", label: "US Dollar ($)" },
+                ]}
+                onChange={(v) => setLocalProfile((p) => ({ ...p, currency: v }))}
+              />
+              <SelectField
+                label="Operating Timezone"
+                value={localProfile.timezone || "Africa/Accra"}
+                options={[
+                  { value: "Africa/Accra", label: "Accra (GMT)" },
+                  { value: "Africa/Lagos", label: "Lagos (WAT)" },
+                ]}
+                onChange={(v) => setLocalProfile((p) => ({ ...p, timezone: v }))}
+              />
+            </div>
+          </div>
         )}
 
-        {/* ── Save button (for sections that write to DB) ── */}
         {["ai", "profile", "business"].includes(section.id) && (
-          <div className="pt-4" style={{ borderTop: "1px solid #2a2a35" }}>
-            <SaveBtn />
+          <div className="pt-8 border-t border-slate-800 flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-sm transition-all active:scale-95 shadow-xl ${
+                isSaved 
+                  ? "bg-emerald-500 text-white shadow-emerald-500/20" 
+                  : isError 
+                    ? "bg-rose-500 text-white shadow-rose-500/20"
+                    : "bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/20"
+              } ${isSaving ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : isSaved ? <CheckCircle size={16} /> : <Save size={16} />}
+              {isSaving ? "Processing..." : isSaved ? "Changes Saved!" : isError ? "Save Failed — Retry" : "Commit Changes"}
+            </button>
           </div>
         )}
       </div>
@@ -667,19 +384,10 @@ function SectionDetail({
   );
 }
 
-// ── Reusable form components ──────────────────────────────────
 function Field({ label, type = "text", value, onChange, placeholder }) {
   return (
-    <div>
-      <label
-        style={{
-          display: "block",
-          fontSize: 12,
-          fontWeight: 500,
-          color: "#94a3b8",
-          marginBottom: 6,
-        }}
-      >
+    <div className="space-y-2">
+      <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">
         {label}
       </label>
       <input
@@ -687,22 +395,7 @@ function Field({ label, type = "text", value, onChange, placeholder }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          background: "#0f0f14",
-          border: "1px solid #2a2a35",
-          borderRadius: 8,
-          color: "#f8fafc",
-          fontSize: 13,
-          outline: "none",
-        }}
-        onFocus={(e) => {
-          e.target.style.borderColor = "#6366f1";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = "#2a2a35";
-        }}
+        className="w-full px-5 py-3.5 bg-slate-950 border border-slate-800 rounded-2xl text-[13px] text-slate-50 outline-none focus:border-indigo-500/50 transition-all shadow-inner placeholder:text-slate-700 font-medium"
       />
     </div>
   );
@@ -710,33 +403,15 @@ function Field({ label, type = "text", value, onChange, placeholder }) {
 
 function Toggle({ label, checked, onChange }) {
   return (
-    <div className="flex items-center justify-between py-1">
-      <span style={{ fontSize: 13, color: "#f8fafc" }}>{label}</span>
+    <div className="flex items-center justify-between group">
+      <span className="text-[13px] font-bold text-slate-300 group-hover:text-slate-50 transition-colors">{label}</span>
       <button
         onClick={() => onChange(!checked)}
-        className="relative flex-shrink-0 cursor-pointer"
-        style={{
-          width: 40,
-          height: 22,
-          borderRadius: 99,
-          background: checked ? "#6366f1" : "#2a2a35",
-          border: "none",
-          padding: 0,
-          transition: "background 0.2s",
-        }}
+        className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+          checked ? "bg-indigo-600 shadow-lg shadow-indigo-500/20" : "bg-slate-800"
+        }`}
       >
-        <span
-          style={{
-            position: "absolute",
-            top: 3,
-            left: checked ? 20 : 3,
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            background: "#fff",
-            transition: "left 0.2s",
-          }}
-        />
+        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${checked ? "translate-x-6" : "translate-x-0"}`} />
       </button>
     </div>
   );
@@ -744,39 +419,22 @@ function Toggle({ label, checked, onChange }) {
 
 function SelectField({ label, options, value, onChange }) {
   return (
-    <div>
-      <label
-        style={{
-          display: "block",
-          fontSize: 12,
-          fontWeight: 500,
-          color: "#94a3b8",
-          marginBottom: 6,
-        }}
-      >
+    <div className="space-y-2">
+      <label className="block text-[11px] font-black uppercase tracking-widest text-slate-500">
         {label}
       </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          background: "#0f0f14",
-          border: "1px solid #2a2a35",
-          borderRadius: 8,
-          color: "#f8fafc",
-          fontSize: 13,
-          outline: "none",
-          cursor: "pointer",
-        }}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative group">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-5 py-3.5 bg-slate-950 border border-slate-800 rounded-2xl text-[13px] text-slate-50 outline-none cursor-pointer focus:border-indigo-500/50 transition-all appearance-none shadow-inner font-medium"
+        >
+          {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 group-hover:text-slate-400 transition-colors">
+          <ChevronRight size={14} className="rotate-90" />
+        </div>
+      </div>
     </div>
   );
 }

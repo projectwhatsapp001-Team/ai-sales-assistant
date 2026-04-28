@@ -8,23 +8,24 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 const TITLES = {
-  overview: "Overview",
-  conversations: "Conversations",
-  orders: "Orders",
-  followups: "Follow-ups",
-  analytics: "Analytics",
-  settings: "Settings",
-  billing: "Billing",
+  overview: "Performance Overview",
+  conversations: "Customer Conversations",
+  orders: "Order Management",
+  followups: "Follow-up Automation",
+  analytics: "Business Analytics",
+  settings: "Account Settings",
+  billing: "Billing & Subscription",
 };
 
-const NOTIF_ICONS = {
-  handoff: { icon: AlertCircle, color: "#f43f5e" },
-  order: { icon: CheckCircle, color: "#10b981" },
-  followup: { icon: Clock, color: "#f59e0b" },
+const NOTIF_CONFIG = {
+  handoff: { icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-500/10" },
+  order: { icon: CheckCircle, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  followup: { icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10" },
 };
 
 export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
@@ -37,16 +38,12 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // ── Supabase Realtime — listen for new conversations ───────
   useEffect(() => {
     if (!profileId) return;
 
-    // Load initial unread notifications
     supabase
       .from("conversations")
-      .select(
-        "id, message, created_at, needs_human, status, customers(full_name)",
-      )
+      .select("id, message, created_at, needs_human, status, customers(full_name)")
       .eq("profile_id", profileId)
       .eq("is_read", false)
       .order("created_at", { ascending: false })
@@ -56,9 +53,7 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
         const mapped = data.map((row) => ({
           id: row.id,
           type: row.needs_human ? "handoff" : "order",
-          title: row.needs_human
-            ? "Human handoff needed"
-            : "New message received",
+          title: row.needs_human ? "Human handoff needed" : "New message received",
           body: row.customers?.full_name
             ? `${row.customers.full_name}: ${(row.message || "").slice(0, 60)}`
             : (row.message || "").slice(0, 70),
@@ -68,7 +63,6 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
         setNotifications(mapped);
       });
 
-    // Realtime subscription — new conversations inserted
     const channel = supabase
       .channel(`topbar-notifs-${profileId}`)
       .on(
@@ -97,7 +91,6 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
     return () => supabase.removeChannel(channel);
   }, [profileId]);
 
-  // ── Close panel on outside click ───────────────────────────
   useEffect(() => {
     function handler(e) {
       if (panelRef.current && !panelRef.current.contains(e.target))
@@ -113,6 +106,7 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
 
   const markAllRead = () =>
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  
   const markRead = (id) =>
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -121,282 +115,134 @@ export default function TopBar({ page, onMenuClick, onNavigate, profileId }) {
   function handleNotifClick(notif) {
     markRead(notif.id);
     setNotifOpen(false);
-    if (onNavigate) {
-      onNavigate(notif.type === "handoff" ? "conversations" : "conversations");
-    }
+    if (onNavigate) onNavigate("conversations");
   }
 
   return (
-    <header
-      className="flex items-center justify-between px-6 py-3 relative"
-      style={{
-        borderBottom: "1px solid #1a1a22",
-        background: "#07070a",
-        zIndex: 30,
-      }}
-    >
-      <div className="flex items-center gap-3">
+    <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+      <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
-          className="lg:hidden"
-          style={{
-            background: "none",
-            border: "none",
-            color: "#64748b",
-            cursor: "pointer",
-          }}
+          className="lg:hidden p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
         >
           <Menu size={20} />
         </button>
-        <h1
-          style={{
-            fontFamily: "Syne, sans-serif",
-            fontWeight: 700,
-            fontSize: 20,
-            color: "#f8fafc",
-          }}
-        >
+        <h1 className="font-syne font-bold text-lg sm:text-xl text-slate-50 tracking-tight">
           {TITLES[page] || "Overview"}
         </h1>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Search */}
-        {searchOpen ? (
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-            style={{
-              background: "#18181f",
-              border: "1px solid #2a2a35",
-              minWidth: 220,
-            }}
-          >
-            <Search size={14} style={{ color: "#64748b", flexShrink: 0 }} />
+        <div className="hidden sm:flex items-center group">
+          <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl transition-all duration-500 ${
+            searchOpen ? "w-64 bg-slate-900 border-indigo-500/50" : "w-10 bg-transparent border-transparent"
+          } border`}>
+            <button 
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="text-slate-500 hover:text-indigo-400 transition-colors"
+            >
+              <Search size={18} />
+            </button>
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search conversations, orders..."
+              placeholder="Quick search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }
-              }}
-              style={{
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                fontSize: 13,
-                color: "#f8fafc",
-                width: "100%",
-              }}
+              className={`bg-transparent border-none outline-none text-xs text-slate-50 w-full placeholder:text-slate-600 transition-opacity duration-300 ${searchOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
             />
-            <button
-              onClick={() => {
-                setSearchOpen(false);
-                setSearchQuery("");
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#64748b",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
-              <X size={14} />
-            </button>
+            {searchOpen && (
+              <button onClick={() => {setSearchOpen(false); setSearchQuery("");}} className="text-slate-600 hover:text-slate-400">
+                <X size={14} />
+              </button>
+            )}
           </div>
-        ) : (
-          <button
-            onClick={() => setSearchOpen(true)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#64748b",
-              cursor: "pointer",
-              padding: "4px",
-            }}
-          >
-            <Search size={17} />
-          </button>
-        )}
+        </div>
 
-        {/* Bell */}
+        {/* Notifications */}
         <div className="relative" ref={panelRef}>
           <button
-            onClick={() => setNotifOpen((o) => !o)}
-            className="relative"
-            style={{
-              background: "none",
-              border: "none",
-              color: notifOpen ? "#818cf8" : "#64748b",
-              cursor: "pointer",
-              padding: "4px",
-            }}
+            onClick={() => setNotifOpen(!notifOpen)}
+            className={`p-2.5 rounded-2xl transition-all relative ${
+              notifOpen ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-slate-900 border border-slate-800 text-slate-500 hover:text-slate-300"
+            }`}
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span
-                className="absolute -top-1 -right-1 flex items-center justify-center rounded-full"
-                style={{
-                  width: 16,
-                  height: 16,
-                  background: "#f43f5e",
-                  border: "2px solid #07070a",
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: "#fff",
-                }}
-              >
-                {unreadCount > 9 ? "9+" : unreadCount}
+              <span className="absolute -top-1 -right-1 flex h-5 w-5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-rose-500 items-center justify-center text-[9px] font-black text-white border-2 border-slate-950">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div
-              className="absolute right-0 top-10 rounded-xl overflow-hidden"
-              style={{
-                width: 340,
-                background: "#0f0f14",
-                border: "1px solid #2a2a35",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-                zIndex: 100,
-              }}
-            >
-              <div
-                className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: "1px solid #1a1a22" }}
-              >
-                <div className="flex items-center gap-2">
-                  <p
-                    style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc" }}
-                  >
-                    Notifications
-                  </p>
-                  {unreadCount > 0 && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        background: "#f43f5e",
-                        color: "#fff",
-                        padding: "1px 6px",
-                        borderRadius: 99,
-                      }}
-                    >
-                      {unreadCount} new
-                    </span>
-                  )}
-                </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllRead}
-                    style={{
-                      fontSize: 11,
-                      color: "#818cf8",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Mark all read
-                  </button>
-                )}
+            <div className="absolute right-0 mt-4 w-80 sm:w-96 rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl shadow-black z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/50 bg-slate-900/80">
+                <p className="text-sm font-bold text-slate-50">Notifications</p>
+                <button
+                  onClick={markAllRead}
+                  className="text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Mark All Read
+                </button>
               </div>
 
-              <div style={{ maxHeight: 360, overflowY: "auto" }}>
+              <div className="max-h-[400px] overflow-y-auto scrollbar-hide divide-y divide-slate-800/40">
                 {notifications.length === 0 ? (
-                  <div
-                    className="py-10 text-center"
-                    style={{ fontSize: 13, color: "#64748b" }}
-                  >
-                    No notifications yet
+                  <div className="py-16 text-center">
+                    <Bell size={32} className="mx-auto text-slate-800 mb-4 opacity-50" />
+                    <p className="text-xs text-slate-500 font-medium">No new activity to report.</p>
                   </div>
                 ) : (
-                  notifications.map((notif, i) => {
-                    const cfg = NOTIF_ICONS[notif.type] || NOTIF_ICONS.order;
+                  notifications.map((notif) => {
+                    const cfg = NOTIF_CONFIG[notif.type] || NOTIF_CONFIG.order;
                     const Icon = cfg.icon;
                     return (
                       <div
                         key={notif.id}
                         onClick={() => handleNotifClick(notif)}
-                        className="flex items-start gap-3 px-4 py-3 cursor-pointer"
-                        style={{
-                          borderTop: i === 0 ? "none" : "1px solid #1a1a22",
-                          background: notif.read
-                            ? "transparent"
-                            : "rgba(99,102,241,0.05)",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#18181f";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = notif.read
-                            ? "transparent"
-                            : "rgba(99,102,241,0.05)";
-                        }}
+                        className={`group flex items-start gap-4 px-6 py-5 cursor-pointer transition-all ${
+                          notif.read ? "bg-transparent opacity-60" : "bg-indigo-500/5 hover:bg-indigo-500/10"
+                        }`}
                       >
-                        <div
-                          className="flex items-center justify-center rounded-lg flex-shrink-0 mt-0.5"
-                          style={{
-                            width: 32,
-                            height: 32,
-                            background: cfg.color + "20",
-                          }}
-                        >
-                          <Icon size={15} style={{ color: cfg.color }} />
+                        <div className={`flex items-center justify-center rounded-xl flex-shrink-0 w-10 h-10 border border-slate-800 shadow-inner transition-colors ${cfg.bg}`}>
+                          <Icon size={16} className={cfg.color} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p
-                              style={{
-                                fontSize: 12,
-                                fontWeight: notif.read ? 500 : 600,
-                                color: notif.read ? "#94a3b8" : "#f8fafc",
-                              }}
-                            >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className={`text-[13px] font-bold truncate ${notif.read ? "text-slate-400" : "text-slate-50"}`}>
                               {notif.title}
                             </p>
-                            {!notif.read && (
-                              <span
-                                className="rounded-full flex-shrink-0"
-                                style={{
-                                  width: 6,
-                                  height: 6,
-                                  background: "#6366f1",
-                                  display: "inline-block",
-                                }}
-                              />
-                            )}
+                            {!notif.read && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50" />}
                           </div>
-                          <p
-                            style={{
-                              fontSize: 11,
-                              color: "#64748b",
-                              marginTop: 2,
-                              lineHeight: 1.4,
-                            }}
-                          >
+                          <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
                             {notif.body}
                           </p>
-                          <p
-                            style={{
-                              fontSize: 10,
-                              color: "#475569",
-                              marginTop: 4,
-                            }}
-                          >
-                            {notif.time}
-                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Clock size={10} className="text-slate-600" />
+                            <p className="text-[10px] font-black uppercase tracking-tighter text-slate-600">
+                              {notif.time}
+                            </p>
+                          </div>
                         </div>
+                        <ChevronRight size={14} className="text-slate-700 group-hover:text-slate-500 transition-colors self-center" />
                       </div>
                     );
                   })
                 )}
+              </div>
+              
+              <div className="p-4 border-t border-slate-800/50 bg-slate-900/80">
+                <button 
+                  onClick={() => {setNotifOpen(false); onNavigate("conversations");}}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-400 bg-slate-800/50 hover:bg-slate-800 hover:text-slate-200 transition-all border border-slate-800/50"
+                >
+                  View Activity Center
+                </button>
               </div>
             </div>
           )}

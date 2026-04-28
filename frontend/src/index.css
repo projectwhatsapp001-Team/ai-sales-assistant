@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Syne:wght@400;500;600;700;800&display=swap');
 
 * {
   box-sizing: border-box;
@@ -7,25 +8,37 @@
 }
 
 body {
-  font-family: "DM Sans", sans-serif;
+  font-family: "Outfit", "DM Sans", sans-serif;
   background-color: #07070a;
   color: #f8fafc;
   -webkit-font-smoothing: antialiased;
 }
 
+.font-syne {
+  font-family: "Syne", sans-serif;
+}
+
+.font-outfit {
+  font-family: "Outfit", sans-serif;
+}
+
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #07070a;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a35;
-  border-radius: 2px;
+  background: #1e1e2d;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2d2d3d;
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -40,11 +53,19 @@ body {
 }
 
 .fade-up {
-  animation: fadeUp 0.4s ease both;
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .pulse-dot {
   animation: pulseDot 1.5s ease-in-out infinite;
 }
 .pulse-ring {
   animation: pulseRing 2s ease-out infinite;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

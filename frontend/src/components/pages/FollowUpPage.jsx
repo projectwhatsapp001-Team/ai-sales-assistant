@@ -1,44 +1,40 @@
-// src/components/pages/FollowUpPage.jsx
+// frontend/src/components/pages/FollowUpPage.jsx
 import { useState, useEffect } from "react";
-import { Clock, CheckCircle, XCircle, Send } from "lucide-react";
+import { 
+  Clock, 
+  ChevronRight, 
+  Calendar, 
+  MessageSquare, 
+  Filter, 
+  Search,
+  Loader2,
+  CheckCircle2,
+  AlertCircle
+} from "lucide-react";
 import { apiGet } from "../../lib/api";
-
-const STATUS_CONFIG = {
-  pending: { label: "Pending", bg: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "rgba(245,158,11,0.3)" },
-  sent: { label: "Sent", bg: "rgba(16,185,129,0.15)", color: "#10b981", border: "rgba(16,185,129,0.3)" },
-  failed: { label: "Failed", bg: "rgba(244,63,94,0.15)", color: "#f43f5e", border: "rgba(244,63,94,0.3)" },
-};
 
 const MOCK_FOLLOWUPS = [
   {
-    id: "1",
-    customers: { full_name: "John Smith", phone_number: "+233 24 123 4567" },
-    type: "abandoned_cart",
-    message: "Hi John, you left some items in your cart. Complete your order now!",
-    scheduled_for: "2026-04-20T14:00:00Z",
+    id: "flw_1",
+    customers: { full_name: "John Smith", phone_number: "+233 24 111 2222" },
+    scheduled_for: "2026-04-21T10:00:00Z",
+    message_type: "Remind to order",
     status: "pending",
   },
   {
-    id: "2",
-    customers: { full_name: "Alice Johnson", phone_number: "+233 54 987 6543" },
-    type: "payment_reminder",
-    message: "Reminder: Your payment for order #A3F7B2C1 is still pending.",
-    scheduled_for: "2026-04-20T16:00:00Z",
+    id: "flw_2",
+    customers: { full_name: "Alice Johnson", phone_number: "+233 54 333 4444" },
+    scheduled_for: "2026-04-21T14:30:00Z",
+    message_type: "Check satisfaction",
     status: "sent",
-  },
-  {
-    id: "3",
-    customers: { full_name: "Kemi Adeyemi", phone_number: "+233 20 456 7890" },
-    type: "feedback_request",
-    message: "How was your experience? We'd love your feedback!",
-    scheduled_for: "2026-04-19T10:00:00Z",
-    status: "failed",
   },
 ];
 
 export default function FollowUpPage() {
   const [followups, setFollowups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     async function fetchFollowups() {
@@ -48,6 +44,7 @@ export default function FollowUpPage() {
         if (!data || data.length === 0) setFollowups(MOCK_FOLLOWUPS);
         else setFollowups(data);
       } catch (err) {
+        setError(err.message);
         setFollowups(MOCK_FOLLOWUPS);
       } finally {
         setLoading(false);
@@ -56,83 +53,197 @@ export default function FollowUpPage() {
     fetchFollowups();
   }, []);
 
+  const filtered =
+    statusFilter === "all"
+      ? followups
+      : followups.filter((f) => f.status === statusFilter);
+
   const pendingCount = followups.filter((f) => f.status === "pending").length;
-  const sentCount = followups.filter((f) => f.status === "sent").length;
 
   return (
-    <div className="fade-up space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="fade-up flex flex-col h-full bg-slate-950 px-4 sm:px-6 lg:px-8 py-8 overflow-y-auto scrollbar-hide">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <p style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 18, color: "#f8fafc" }}>Follow-ups</p>
-          <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{followups.length} total · {pendingCount} pending · {sentCount} sent</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+              <Clock size={20} />
+            </div>
+            <p className="font-syne font-bold text-2xl text-slate-50 tracking-tight">
+              Follow-up Automation
+            </p>
+          </div>
+          <p className="text-sm text-slate-500 font-medium">
+            Manage automated reminders and customer re-engagement.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="px-4 py-2 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl flex items-center gap-3">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            <p className="text-xs font-bold text-slate-300">Queue Active</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats Area */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
         {[
-          { label: "Total", value: loading ? "..." : followups.length, color: "#f8fafc" },
-          { label: "Pending", value: loading ? "..." : pendingCount, color: "#f59e0b" },
-          { label: "Sent", value: loading ? "..." : sentCount, color: "#10b981" },
+          { label: "Total Tasks", value: followups.length, icon: Calendar, color: "text-slate-50" },
+          { label: "Pending Now", value: pendingCount, icon: Clock, color: "text-amber-500" },
+          { label: "Sent Today", value: followups.filter(f => f.status === 'sent').length, icon: CheckCircle2, color: "text-emerald-500" }
         ].map((s, i) => (
-          <div key={i} className="rounded-xl px-4 py-3" style={{ background: "#18181f", border: "1px solid #2a2a35" }}>
-            <p style={{ fontSize: 11, color: "#64748b" }}>{s.label}</p>
-            <p style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 700, color: s.color, marginTop: 4 }}>{s.value}</p>
+          <div key={i} className="rounded-3xl p-6 bg-slate-900 border border-slate-800 shadow-lg hover:bg-slate-800/40 transition-all group">
+            <div className="flex items-center gap-3 mb-3">
+              <s.icon size={16} className="text-slate-600 group-hover:text-indigo-400 transition-colors" />
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{s.label}</p>
+            </div>
+            <p className={`font-syne text-3xl font-bold ${s.color}`}>{loading ? "..." : s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl overflow-hidden" style={{ background: "#18181f", border: "1px solid #2a2a35" }}>
-        {loading ? (
-          <div className="py-12 text-center" style={{ fontSize: 13, color: "#64748b" }}>Loading follow-ups...</div>
-        ) : followups.length === 0 ? (
-          <div className="py-12 text-center" style={{ fontSize: 13, color: "#64748b" }}>No follow-ups scheduled</div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #2a2a35" }}>
-                  {["Customer", "Type", "Message", "Scheduled", "Status", "Actions"].map((h) => (
-                    <th key={h} style={{ padding: "10px 18px", textAlign: "left", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b" }}>{h}</th>
-                  ))}
+      {/* Filters Area */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {["all", "pending", "sent", "cancelled"].map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`whitespace-nowrap px-5 py-2 rounded-xl text-xs font-bold transition-all border capitalize ${
+                statusFilter === f
+                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                  : "bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 w-full sm:w-64 focus-within:border-indigo-500/50 transition-all">
+          <Search size={14} className="text-slate-600" />
+          <input 
+            type="text" 
+            placeholder="Search tasks..." 
+            className="bg-transparent border-none outline-none text-xs text-slate-50 w-full placeholder:text-slate-600"
+          />
+        </div>
+      </div>
+
+      {/* Responsive Tasks Container */}
+      <div className="rounded-3xl overflow-hidden bg-slate-900/50 border border-slate-800 shadow-2xl">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto scrollbar-hide">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-900/80 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                <th className="px-6 py-5 text-left">Task Reference</th>
+                <th className="px-6 py-5 text-left">Recipient</th>
+                <th className="px-6 py-5 text-left">Type</th>
+                <th className="px-6 py-5 text-left">Scheduled</th>
+                <th className="px-6 py-5 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="py-20 text-center">
+                    <Loader2 size={24} className="mx-auto text-indigo-500 animate-spin mb-3" />
+                    <p className="text-xs text-slate-500 font-medium tracking-tight">Accessing schedule...</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {followups.map((f, i) => {
-                  const cfg = STATUS_CONFIG[f.status] || STATUS_CONFIG.pending;
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="py-20 text-center text-xs text-slate-500 font-medium">
+                    No follow-up tasks currently in queue.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((f) => {
                   const name = f.customers?.full_name || "Unknown";
-                  const date = new Date(f.scheduled_for).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+                  const date = new Date(f.scheduled_for).toLocaleString("en-GB", {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                  });
+                  const shortId = `#${f.id.slice(-6).toUpperCase()}`;
 
                   return (
-                    <tr
-                      key={f.id}
-                      style={{ borderTop: i === 0 ? "none" : "1px solid #22222c", cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "#22222c"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <td style={{ padding: "12px 18px", color: "#f8fafc", fontWeight: 500 }}>{name}</td>
-                      <td style={{ padding: "12px 18px", color: "#94a3b8" }}>{f.type.replace("_", " ")}</td>
-                      <td style={{ padding: "12px 18px", color: "#94a3b8", maxWidth: 300 }} className="truncate">{f.message}</td>
-                      <td style={{ padding: "12px 18px", color: "#64748b", fontSize: 11 }}>{date}</td>
-                      <td style={{ padding: "12px 18px" }}>
-                        <span style={{ fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-                          {cfg.label}
-                        </span>
+                    <tr key={f.id} className="group hover:bg-slate-800/40 transition-colors cursor-pointer">
+                      <td className="px-6 py-5 font-mono text-[11px] font-bold text-indigo-400/70 group-hover:text-indigo-400 transition-colors">{shortId}</td>
+                      <td className="px-6 py-5">
+                        <p className="text-xs font-bold text-slate-50">{name}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">{f.customers?.phone_number}</p>
                       </td>
-                      <td style={{ padding: "12px 18px" }}>
-                        <div className="flex gap-2">
-                          <button style={{ background: "none", border: "none", color: "#10b981", cursor: "pointer" }}><CheckCircle size={16} /></button>
-                          <button style={{ background: "none", border: "none", color: "#f43f5e", cursor: "pointer" }}><XCircle size={16} /></button>
-                          <button style={{ background: "none", border: "none", color: "#818cf8", cursor: "pointer" }}><Send size={16} /></button>
-                        </div>
+                      <td className="px-6 py-5 text-xs text-slate-400 font-medium">{f.message_type}</td>
+                      <td className="px-6 py-5 text-[11px] text-slate-500 font-bold uppercase tracking-tighter">{date}</td>
+                      <td className="px-6 py-5">
+                        <span className={`text-[9px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-md border ${
+                          f.status === "sent" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                          f.status === "cancelled" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" :
+                          "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                        }`}>
+                          {f.status}
+                        </span>
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-800/50">
+          {loading ? (
+            <div className="py-20 text-center">
+              <Loader2 size={24} className="mx-auto text-indigo-500 animate-spin mb-3" />
+              <p className="text-xs text-slate-500 font-medium">Loading schedule...</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-20 text-center text-xs text-slate-500 font-medium">
+              No tasks found.
+            </div>
+          ) : (
+            filtered.map((f) => {
+              const name = f.customers?.full_name || "Unknown";
+              const date = new Date(f.scheduled_for).toLocaleString("en-GB", {
+                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+              });
+              const shortId = `#${f.id.slice(-6).toUpperCase()}`;
+
+              return (
+                <div key={f.id} className="p-5 active:bg-slate-800/40 transition-colors">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">{shortId}</p>
+                      <p className="text-sm font-bold text-slate-50">{name}</p>
+                    </div>
+                    <span className={`text-[9px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-md border ${
+                      f.status === "sent" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                      f.status === "cancelled" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" :
+                      "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    }`}>
+                      {f.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium mb-1">{f.message_type}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{date}</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-700" />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
+
     </div>
   );
 }

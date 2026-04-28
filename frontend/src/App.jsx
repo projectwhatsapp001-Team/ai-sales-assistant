@@ -14,6 +14,7 @@ import FollowUpPage from "./components/pages/FollowUpPage";
 import SettingsPage from "./components/pages/SettingsPage";
 import AnalyticsPage from "./components/pages/AnalyticsPage";
 import BillingPage from "./components/pages/BillingPage";
+import { AlertTriangle, Loader2, Zap, Clock, ShieldAlert } from "lucide-react";
 
 // ── SAFE SUPABASE IMPORT ──
 let supabase = null;
@@ -39,61 +40,20 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#07070a",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 400,
-              padding: 32,
-              borderRadius: 16,
-              background: "#18181f",
-              border: "1px solid #2a2a35",
-              textAlign: "center",
-            }}
-          >
-            <p style={{ fontSize: 40, marginBottom: 16 }}>⚠️</p>
-            <p
-              style={{
-                fontFamily: "Syne,sans-serif",
-                fontWeight: 700,
-                fontSize: 18,
-                color: "#f8fafc",
-                marginBottom: 8,
-              }}
-            >
-              Something went wrong
-            </p>
-            <p
-              style={{
-                fontSize: 13,
-                color: "#64748b",
-                marginBottom: 24,
-                lineHeight: 1.6,
-              }}
-            >
-              {this.state.error?.message || "An unexpected error occurred."}
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
+          <div className="max-w-md w-full p-10 rounded-3xl bg-slate-900 border border-slate-800 text-center shadow-2xl">
+            <div className="w-20 h-20 bg-rose-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-rose-500/20">
+              <AlertTriangle size={40} className="text-rose-500" />
+            </div>
+            <h2 className="font-syne font-bold text-2xl text-slate-50 mb-3 tracking-tight">System Interruption</h2>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">
+              {this.state.error?.message || "An unexpected intelligence fault occurred. Betty needs a quick restart."}
             </p>
             <button
               onClick={() => window.location.reload()}
-              style={{
-                background: "#6366f1",
-                color: "#fff",
-                border: "none",
-                padding: "10px 24px",
-                borderRadius: 8,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 transition-all active:scale-95 shadow-xl shadow-indigo-600/20"
             >
-              Reload App
+              Restart SalesBot
             </button>
           </div>
         </div>
@@ -114,7 +74,6 @@ const PAGES = {
 };
 
 export default function App() {
-  // ── HANDLE AUTH CALLBACK (email confirmation redirect) ──
   if (window.location.pathname === "/auth/callback") {
     return (
       <ErrorBoundary>
@@ -128,19 +87,10 @@ export default function App() {
   const [sidebarOpen, setSidebar] = useState(false);
   const [authView, setAuthView] = useState("login");
 
-  // ── STATE: Read from localStorage first (your fix) ──
-  const [businessName, setBusinessName] = useState(() => {
-    return localStorage.getItem("betty-business-name") || "SalesBot";
-  });
-  const [userName, setUserName] = useState(() => {
-    return localStorage.getItem("betty-user-name") || "Team Lead";
-  });
+  const [businessName, setBusinessName] = useState(() => localStorage.getItem("betty-business-name") || "SalesBot");
+  const [userName, setUserName] = useState(() => localStorage.getItem("betty-user-name") || "Team Lead");
   const [profileId, setProfileId] = useState(null);
-  const [badges, setBadges] = useState({
-    conversations: 0,
-    orders: 0,
-    followups: 0,
-  });
+  const [badges, setBadges] = useState({ conversations: 0, orders: 0, followups: 0 });
   const [trialExpired, setTrialExpired] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const mountedRef = useRef(true);
@@ -148,15 +98,11 @@ export default function App() {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
-  // ── LOAD: Try Supabase, fall back to localStorage ──
   useEffect(() => {
     if (!user) return;
-
     async function loadProfile() {
       const localBiz = localStorage.getItem("betty-business-name");
       const localName = localStorage.getItem("betty-user-name");
@@ -167,17 +113,12 @@ export default function App() {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select(
-            "id, business_name, full_name, trial_ends_at, plan, is_active",
-          )
+          .select("id, business_name, full_name, trial_ends_at, plan, is_active")
           .eq("user_id", user.id)
           .single();
 
         if (!mountedRef.current) return;
-        if (error || !data) {
-          console.log("Supabase profile not found, using localStorage");
-          return;
-        }
+        if (error || !data) return;
 
         if (data.business_name) {
           setBusinessName(data.business_name);
@@ -189,14 +130,10 @@ export default function App() {
         }
         setProfileId(data.id);
 
-        const isNew =
-          !data.business_name || data.business_name === "My Business";
-        if (isNew) setShowOnboarding(true);
+        if (!data.business_name || data.business_name === "My Business") setShowOnboarding(true);
 
         const now = new Date();
-        const trialEndsAt = data.trial_ends_at
-          ? new Date(data.trial_ends_at)
-          : null;
+        const trialEndsAt = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
         const isPaid = ["starter", "pro"].includes(data.plan);
         const isInTrial = trialEndsAt != null && now < trialEndsAt;
         if (!isPaid && !isInTrial) {
@@ -204,14 +141,12 @@ export default function App() {
           setPage("billing");
         }
       } catch (err) {
-        console.log("Supabase error (using localStorage):", err.message);
+        console.log("Supabase profile error:", err.message);
       }
     }
-
     loadProfile();
   }, [user]);
 
-  // ── REALTIME: Poll localStorage every 1 second (your fix) ──
   useEffect(() => {
     const interval = setInterval(() => {
       if (!mountedRef.current) return;
@@ -223,117 +158,64 @@ export default function App() {
     return () => clearInterval(interval);
   }, [businessName, userName]);
 
-  // ── BADGES: Try Supabase, use defaults if fails ──
   useEffect(() => {
     if (!supabase || !user || !profileId) return;
-
     async function fetchBadges() {
       try {
         const [c, o, f] = await Promise.all([
-          supabase
-            .from("conversations")
-            .select("id,needs_human,is_read")
-            .eq("profile_id", profileId),
-          supabase
-            .from("orders")
-            .select("id,status")
-            .eq("profile_id", profileId),
-          supabase
-            .from("follow_ups")
-            .select("id,status")
-            .eq("profile_id", profileId),
+          supabase.from("conversations").select("id,needs_human,is_read").eq("profile_id", profileId),
+          supabase.from("orders").select("id,status").eq("profile_id", profileId),
+          supabase.from("follow_ups").select("id,status").eq("profile_id", profileId),
         ]);
         if (!mountedRef.current) return;
         setBadges({
-          conversations: Array.isArray(c.data)
-            ? c.data.filter((x) => x.needs_human || !x.is_read).length
-            : 0,
-          orders: Array.isArray(o.data)
-            ? o.data.filter((x) => x.status === "pending").length
-            : 0,
-          followups: Array.isArray(f.data)
-            ? f.data.filter((x) => x.status === "pending").length
-            : 0,
+          conversations: Array.isArray(c.data) ? c.data.filter((x) => x.needs_human || !x.is_read).length : 0,
+          orders: Array.isArray(o.data) ? o.data.filter((x) => x.status === "pending").length : 0,
+          followups: Array.isArray(f.data) ? f.data.filter((x) => x.status === "pending").length : 0,
         });
       } catch (err) {
         console.log("Badge fetch error:", err.message);
       }
     }
-
     fetchBadges();
-    if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
     badgeIntervalRef.current = setInterval(fetchBadges, 60000);
-    return () => {
-      if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
-    };
+    return () => clearInterval(badgeIntervalRef.current);
   }, [user, profileId]);
 
-  const userInitials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const userInitials = userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  // ── LOADING ──
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#07070a",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              background: "#6366f1",
-              borderRadius: 12,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-            }}
-          >
-            ⚡
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-50" />
+        <div className="relative flex flex-col items-center gap-6">
+          <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-indigo-600/40 animate-pulse">
+            <Zap size={32} />
           </div>
-          <p style={{ color: "#64748b", fontSize: 13 }}>
-            Loading {businessName}...
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="font-syne font-bold text-slate-50 text-xl tracking-tight">Waking Betty...</p>
+            <div className="flex items-center gap-2 text-slate-500 font-medium text-sm">
+              <Loader2 size={14} className="animate-spin" />
+              <span>Authenticating secure session</span>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── NOT LOGGED IN: Login or Signup ──
   if (!user) {
     return (
       <ErrorBoundary>
         {authView === "signup" ? (
           <SignupPage onSwitchToLogin={() => setAuthView("login")} />
         ) : (
-          <LoginPage
-            onLogin={signIn}
-            onSwitchToSignup={() => setAuthView("signup")}
-          />
+          <LoginPage onLogin={signIn} onSwitchToSignup={() => setAuthView("signup")} />
         )}
       </ErrorBoundary>
     );
   }
 
-  // ── LOGGED IN: Dashboard ──
   const PageComponent = PAGES[page] || OverviewPage;
 
   function handleNavigate(p) {
@@ -357,80 +239,26 @@ export default function App() {
       )}
 
       {trialExpired && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.9)",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 400,
-              width: "100%",
-              margin: "0 16px",
-              padding: 32,
-              borderRadius: 16,
-              background: "#18181f",
-              border: "1px solid rgba(244,63,94,0.4)",
-              textAlign: "center",
-            }}
-          >
-            <p style={{ fontSize: 40, marginBottom: 16 }}>⏰</p>
-            <p
-              style={{
-                fontFamily: "Syne,sans-serif",
-                fontWeight: 700,
-                fontSize: 20,
-                color: "#f8fafc",
-                marginBottom: 8,
-              }}
-            >
-              Free trial ended
-            </p>
-            <p
-              style={{
-                fontSize: 14,
-                color: "#64748b",
-                marginBottom: 24,
-                lineHeight: 1.6,
-              }}
-            >
-              Subscribe to keep Betty running. Plans from GH₵99/month.
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-6">
+          <div className="max-w-md w-full p-10 rounded-3xl bg-slate-900 border border-slate-800 text-center shadow-2xl animate-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
+              <Clock size={40} className="text-amber-500" />
+            </div>
+            <h2 className="font-syne font-bold text-2xl text-slate-50 mb-3 tracking-tight">Trial Period Concluded</h2>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">
+              Your free intelligence trial has ended. To continue leveraging Betty for automated sales, please upgrade to a production plan.
             </p>
             <button
               onClick={() => setPage("billing")}
-              style={{
-                background: "#6366f1",
-                color: "#fff",
-                border: "none",
-                padding: "12px 32px",
-                borderRadius: 10,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                width: "100%",
-              }}
+              className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 transition-all active:scale-95 shadow-xl shadow-indigo-600/20"
             >
-              View Plans & Subscribe
+              Unlock Unlimited AI
             </button>
           </div>
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          height: "100vh",
-          overflow: "hidden",
-          background: "#07070a",
-          color: "#f8fafc",
-        }}
-      >
+      <div className="flex h-screen overflow-hidden bg-slate-950 text-slate-50 font-sans selection:bg-indigo-500/30">
         <Sidebar
           activePage={page}
           onNavigate={handleNavigate}
@@ -442,36 +270,25 @@ export default function App() {
           badges={badges}
           trialExpired={trialExpired}
         />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            overflow: "hidden",
-            background: "#07070a",
-          }}
-        >
+        <div className="flex flex-col flex-1 overflow-hidden">
           <TopBar
             page={page}
             onMenuClick={() => setSidebar(true)}
             onNavigate={handleNavigate}
             profileId={profileId}
           />
-          <main
-            style={{
-              flex: 1,
-              overflow: "hidden",
-              padding: 24,
-              background: "#07070a",
-            }}
-          >
-            {page === "settings" ? (
-              <SettingsPage profileId={profileId} />
-            ) : page === "billing" ? (
-              <BillingPage profileId={profileId} userEmail={user?.email} />
-            ) : (
-              <PageComponent key={page} />
-            )}
+          <main className="flex-1 overflow-hidden bg-slate-950">
+            <div className="h-full w-full overflow-y-auto scrollbar-hide">
+              <div className="max-w-[1600px] mx-auto h-full">
+                {page === "settings" ? (
+                  <div className="p-6 sm:p-10"><SettingsPage profileId={profileId} /></div>
+                ) : page === "billing" ? (
+                  <div className="p-6 sm:p-10"><BillingPage profileId={profileId} userEmail={user?.email} /></div>
+                ) : (
+                  <PageComponent key={page} />
+                )}
+              </div>
+            </div>
           </main>
         </div>
       </div>
