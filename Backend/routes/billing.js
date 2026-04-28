@@ -67,13 +67,26 @@ router.get("/plans", (_req, res) => {
 // GET /api/billing/status/:profileId
 router.get("/status/:profileId", async (req, res) => {
   try {
+    const { profileId } = req.params;
+    if (!profileId) {
+      return res.status(400).json({ error: "Profile ID is required" });
+    }
+
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("id, plan, trial_ends_at, subscription_code, is_active")
-      .eq("id", req.params.profileId)
+      .eq("id", profileId)
       .single();
-    if (error) throw error;
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Error fetching profile: " + error.message });
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
 
     const now = new Date();
     const trialEndsAt = profile.trial_ends_at
@@ -94,7 +107,7 @@ router.get("/status/:profileId", async (req, res) => {
     });
   } catch (err) {
     logger.error(`Billing status error: ${err.message}`);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
