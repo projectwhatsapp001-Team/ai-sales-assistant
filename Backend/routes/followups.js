@@ -1,43 +1,69 @@
+// Backend/routes/followups.js
 const express = require("express");
 const router = express.Router();
-const { createClient } = require("@supabase/supabase-js");
+const supabase = require("../supabase");
+const logger = require("../logger");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
-
-// GET all follow-ups
+// GET /api/followups
 router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("follow_ups")
       .select(
-        `*, customers(full_name, phone_number), orders(items, total_amount)`,
+        "*, customers(full_name, phone_number), orders(items, total_amount)",
       )
+      .eq("profile_id", req.profileId) // ← only this user's follow-ups
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+    const normalized = (data || []).map((f) => ({
+      ...f,
+      scheduled_for: f.scheduled_at,
+      type: f.type || "abandoned_cart",
+      message: f.message_preview || "",
+    }));
+
+    res.json(normalized);
+  } catch (err) {
+    logger.error(`GET /followups: ${err.message}`);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// PATCH mark follow-up as sent
+// PATCH /api/followups/:id/send
 router.patch("/:id/send", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("follow_ups")
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .eq("id", req.params.id)
+      .eq("profile_id", req.profileId)
       .select()
       .single();
 
     if (error) throw error;
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/followups/:id/cancel
+router.patch("/:id/cancel", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("follow_ups")
+      .update({ status: "cancelled" })
+      .eq("id", req.params.id)
+      .eq("profile_id", req.profileId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
