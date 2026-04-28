@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Component } from "react";
 import { useAuth } from "./hooks/useAuth";
 import LoginPage from "./components/pages/LoginPage";
 import SignupPage from "./components/pages/SignupPage";
+import AuthCallback from "./components/pages/AuthCallback";
 import OnboardingModal from "./components/pages/OnboardingModal";
 import Sidebar from "./components/layout/Sidebar";
 import TopBar from "./components/layout/TopBar";
@@ -38,12 +39,62 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#07070a" }}>
-          <div style={{ maxWidth: 400, padding: 32, borderRadius: 16, background: "#18181f", border: "1px solid #2a2a35", textAlign: "center" }}>
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#07070a",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 400,
+              padding: 32,
+              borderRadius: 16,
+              background: "#18181f",
+              border: "1px solid #2a2a35",
+              textAlign: "center",
+            }}
+          >
             <p style={{ fontSize: 40, marginBottom: 16 }}>⚠️</p>
-            <p style={{ fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 18, color: "#f8fafc", marginBottom: 8 }}>Something went wrong</p>
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 24, lineHeight: 1.6 }}>{this.state.error?.message || "An unexpected error occurred."}</p>
-            <button onClick={() => window.location.reload()} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Reload App</button>
+            <p
+              style={{
+                fontFamily: "Syne,sans-serif",
+                fontWeight: 700,
+                fontSize: 18,
+                color: "#f8fafc",
+                marginBottom: 8,
+              }}
+            >
+              Something went wrong
+            </p>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#64748b",
+                marginBottom: 24,
+                lineHeight: 1.6,
+              }}
+            >
+              {this.state.error?.message || "An unexpected error occurred."}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: "#6366f1",
+                color: "#fff",
+                border: "none",
+                padding: "10px 24px",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Reload App
+            </button>
           </div>
         </div>
       );
@@ -63,6 +114,15 @@ const PAGES = {
 };
 
 export default function App() {
+  // ── HANDLE AUTH CALLBACK (email confirmation redirect) ──
+  if (window.location.pathname === "/auth/callback") {
+    return (
+      <ErrorBoundary>
+        <AuthCallback />
+      </ErrorBoundary>
+    );
+  }
+
   const { user, loading, signIn, signOut } = useAuth();
   const [page, setPage] = useState("overview");
   const [sidebarOpen, setSidebar] = useState(false);
@@ -76,7 +136,11 @@ export default function App() {
     return localStorage.getItem("betty-user-name") || "Team Lead";
   });
   const [profileId, setProfileId] = useState(null);
-  const [badges, setBadges] = useState({ conversations: 0, orders: 0, followups: 0 });
+  const [badges, setBadges] = useState({
+    conversations: 0,
+    orders: 0,
+    followups: 0,
+  });
   const [trialExpired, setTrialExpired] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const mountedRef = useRef(true);
@@ -84,7 +148,9 @@ export default function App() {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   // ── LOAD: Try Supabase, fall back to localStorage ──
@@ -101,7 +167,9 @@ export default function App() {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, business_name, full_name, trial_ends_at, plan, is_active")
+          .select(
+            "id, business_name, full_name, trial_ends_at, plan, is_active",
+          )
           .eq("user_id", user.id)
           .single();
 
@@ -121,11 +189,14 @@ export default function App() {
         }
         setProfileId(data.id);
 
-        const isNew = !data.business_name || data.business_name === "My Business";
+        const isNew =
+          !data.business_name || data.business_name === "My Business";
         if (isNew) setShowOnboarding(true);
 
         const now = new Date();
-        const trialEndsAt = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
+        const trialEndsAt = data.trial_ends_at
+          ? new Date(data.trial_ends_at)
+          : null;
         const isPaid = ["starter", "pro"].includes(data.plan);
         const isInTrial = trialEndsAt != null && now < trialEndsAt;
         if (!isPaid && !isInTrial) {
@@ -159,15 +230,30 @@ export default function App() {
     async function fetchBadges() {
       try {
         const [c, o, f] = await Promise.all([
-          supabase.from("conversations").select("id,needs_human,is_read").eq("profile_id", profileId),
-          supabase.from("orders").select("id,status").eq("profile_id", profileId),
-          supabase.from("follow_ups").select("id,status").eq("profile_id", profileId),
+          supabase
+            .from("conversations")
+            .select("id,needs_human,is_read")
+            .eq("profile_id", profileId),
+          supabase
+            .from("orders")
+            .select("id,status")
+            .eq("profile_id", profileId),
+          supabase
+            .from("follow_ups")
+            .select("id,status")
+            .eq("profile_id", profileId),
         ]);
         if (!mountedRef.current) return;
         setBadges({
-          conversations: Array.isArray(c.data) ? c.data.filter(x => x.needs_human || !x.is_read).length : 0,
-          orders: Array.isArray(o.data) ? o.data.filter(x => x.status === "pending").length : 0,
-          followups: Array.isArray(f.data) ? f.data.filter(x => x.status === "pending").length : 0,
+          conversations: Array.isArray(c.data)
+            ? c.data.filter((x) => x.needs_human || !x.is_read).length
+            : 0,
+          orders: Array.isArray(o.data)
+            ? o.data.filter((x) => x.status === "pending").length
+            : 0,
+          followups: Array.isArray(f.data)
+            ? f.data.filter((x) => x.status === "pending").length
+            : 0,
         });
       } catch (err) {
         console.log("Badge fetch error:", err.message);
@@ -177,7 +263,9 @@ export default function App() {
     fetchBadges();
     if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
     badgeIntervalRef.current = setInterval(fetchBadges, 60000);
-    return () => { if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current); };
+    return () => {
+      if (badgeIntervalRef.current) clearInterval(badgeIntervalRef.current);
+    };
   }, [user, profileId]);
 
   const userInitials = userName
@@ -190,10 +278,40 @@ export default function App() {
   // ── LOADING ──
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#07070a" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 44, height: 44, background: "#6366f1", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>⚡</div>
-          <p style={{ color: "#64748b", fontSize: 13 }}>Loading {businessName}...</p>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#07070a",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              background: "#6366f1",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+            }}
+          >
+            ⚡
+          </div>
+          <p style={{ color: "#64748b", fontSize: 13 }}>
+            Loading {businessName}...
+          </p>
         </div>
       </div>
     );
@@ -206,7 +324,10 @@ export default function App() {
         {authView === "signup" ? (
           <SignupPage onSwitchToLogin={() => setAuthView("login")} />
         ) : (
-          <LoginPage onLogin={signIn} onSwitchToSignup={() => setAuthView("signup")} />
+          <LoginPage
+            onLogin={signIn}
+            onSwitchToSignup={() => setAuthView("signup")}
+          />
         )}
       </ErrorBoundary>
     );
@@ -236,17 +357,80 @@ export default function App() {
       )}
 
       {trialExpired && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.9)" }}>
-          <div style={{ maxWidth: 400, width: "100%", margin: "0 16px", padding: 32, borderRadius: 16, background: "#18181f", border: "1px solid rgba(244,63,94,0.4)", textAlign: "center" }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.9)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 400,
+              width: "100%",
+              margin: "0 16px",
+              padding: 32,
+              borderRadius: 16,
+              background: "#18181f",
+              border: "1px solid rgba(244,63,94,0.4)",
+              textAlign: "center",
+            }}
+          >
             <p style={{ fontSize: 40, marginBottom: 16 }}>⏰</p>
-            <p style={{ fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 20, color: "#f8fafc", marginBottom: 8 }}>Free trial ended</p>
-            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 24, lineHeight: 1.6 }}>Subscribe to keep Betty running. Plans from GH₵99/month.</p>
-            <button onClick={() => setPage("billing")} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "12px 32px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" }}>View Plans & Subscribe</button>
+            <p
+              style={{
+                fontFamily: "Syne,sans-serif",
+                fontWeight: 700,
+                fontSize: 20,
+                color: "#f8fafc",
+                marginBottom: 8,
+              }}
+            >
+              Free trial ended
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#64748b",
+                marginBottom: 24,
+                lineHeight: 1.6,
+              }}
+            >
+              Subscribe to keep Betty running. Plans from GH₵99/month.
+            </p>
+            <button
+              onClick={() => setPage("billing")}
+              style={{
+                background: "#6366f1",
+                color: "#fff",
+                border: "none",
+                padding: "12px 32px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                width: "100%",
+              }}
+            >
+              View Plans & Subscribe
+            </button>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#07070a", color: "#f8fafc" }}>
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          overflow: "hidden",
+          background: "#07070a",
+          color: "#f8fafc",
+        }}
+      >
         <Sidebar
           activePage={page}
           onNavigate={handleNavigate}
@@ -258,9 +442,29 @@ export default function App() {
           badges={badges}
           trialExpired={trialExpired}
         />
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", background: "#07070a" }}>
-          <TopBar page={page} onMenuClick={() => setSidebar(true)} onNavigate={handleNavigate} profileId={profileId} />
-          <main style={{ flex: 1, overflow: "hidden", padding: 24, background: "#07070a" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            overflow: "hidden",
+            background: "#07070a",
+          }}
+        >
+          <TopBar
+            page={page}
+            onMenuClick={() => setSidebar(true)}
+            onNavigate={handleNavigate}
+            profileId={profileId}
+          />
+          <main
+            style={{
+              flex: 1,
+              overflow: "hidden",
+              padding: 24,
+              background: "#07070a",
+            }}
+          >
             {page === "settings" ? (
               <SettingsPage profileId={profileId} />
             ) : page === "billing" ? (

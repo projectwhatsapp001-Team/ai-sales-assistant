@@ -7,6 +7,12 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      console.warn("⚠️ Supabase not available in useAuth");
+      setLoading(false);
+      return;
+    }
+
     // Check if a session already exists when the app loads
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -25,6 +31,7 @@ export function useAuth() {
   }, []);
 
   async function signIn(email, password) {
+    if (!supabase) throw new Error("Supabase not configured");
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -34,6 +41,7 @@ export function useAuth() {
   }
 
   async function signOut() {
+    if (!supabase) throw new Error("Supabase not configured");
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }

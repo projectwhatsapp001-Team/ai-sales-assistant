@@ -26,7 +26,7 @@ const app = express();
 
 const allowedOrigins = [
   process.env.APP_URL,
-  "http://localhost:5173",
+  "https://ai-sales-assistant-whatsapp.vercel.app",
   "http://localhost:3000",
 ].filter(Boolean);
 

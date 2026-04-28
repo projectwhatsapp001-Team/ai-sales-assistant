@@ -47,18 +47,19 @@ export default function SignupPage({ onSwitchToLogin }) {
         password,
         options: {
           data: { business_name: businessName.trim() },
-          emailRedirectTo: `${window.location.origin}/`,
+          // This URL must be in your Supabase allowed redirect URLs list
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (signUpError) throw signUpError;
 
-      // Check if email confirmation is required
       if (data?.user && !data?.session) {
+        // Email confirmation required — show verify screen
         setStep("verify");
       }
-      // If session exists, Supabase auto-logged them in
-      // App.jsx will detect the session and redirect automatically
+      // If session exists (email confirmation disabled in Supabase),
+      // the auth state change in useAuth will auto-redirect to dashboard
     } catch (err) {
       const msg = err?.message || "";
       if (
@@ -69,24 +70,24 @@ export default function SignupPage({ onSwitchToLogin }) {
           "An account with this email already exists. Please sign in instead.",
         );
       } else if (msg.includes("Password should be")) {
-        setError(
-          "Password is too weak. Use at least 8 characters with letters and numbers.",
-        );
+        setError("Password too weak. Use at least 8 characters.");
       } else if (msg.includes("rate limit") || msg.includes("too many")) {
         setError("Too many attempts. Please wait a few minutes and try again.");
       } else {
-        setError("Sign up failed. Please check your connection and try again.");
+        setError(
+          msg || "Sign up failed. Please check your connection and try again.",
+        );
       }
     } finally {
       setLoading(false);
     }
   }
 
-  const inputStyle = (hasError) => ({
+  const inp = (hasErr) => ({
     width: "100%",
     padding: "12px 14px",
     background: "#0f0f14",
-    border: `1px solid ${hasError ? "#f43f5e" : "#2a2a35"}`,
+    border: `1px solid ${hasErr ? "#f43f5e" : "#2a2a35"}`,
     borderRadius: 10,
     color: "#f8fafc",
     fontSize: 14,
@@ -94,7 +95,7 @@ export default function SignupPage({ onSwitchToLogin }) {
     boxSizing: "border-box",
   });
 
-  // ── Email verification step ───────────────────────────────
+  // ── Email sent screen ─────────────────────────────────────
   if (step === "verify") {
     return (
       <div
@@ -122,16 +123,17 @@ export default function SignupPage({ onSwitchToLogin }) {
             style={{
               width: 64,
               height: 64,
-              background: "rgba(99,102,241,0.15)",
-              border: "1px solid rgba(99,102,241,0.3)",
+              background: "rgba(16,185,129,0.15)",
+              border: "1px solid rgba(16,185,129,0.3)",
               borderRadius: 16,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 24px",
+              fontSize: 30,
             }}
           >
-            <CheckCircle size={32} color="#818cf8" />
+            ✉️
           </div>
           <p
             style={{
@@ -149,17 +151,17 @@ export default function SignupPage({ onSwitchToLogin }) {
               fontSize: 14,
               color: "#64748b",
               lineHeight: 1.7,
-              marginBottom: 8,
+              marginBottom: 6,
             }}
           >
             We sent a confirmation link to
           </p>
           <p
             style={{
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 600,
               color: "#818cf8",
-              marginBottom: 24,
+              marginBottom: 20,
             }}
           >
             {email}
@@ -168,8 +170,8 @@ export default function SignupPage({ onSwitchToLogin }) {
             style={{
               fontSize: 13,
               color: "#64748b",
-              lineHeight: 1.6,
-              marginBottom: 32,
+              lineHeight: 1.7,
+              marginBottom: 28,
             }}
           >
             Click the link in the email to activate your account and start your{" "}
@@ -179,7 +181,7 @@ export default function SignupPage({ onSwitchToLogin }) {
             . Check your spam folder if you don't see it.
           </p>
           <button
-            onClick={() => onSwitchToLogin()}
+            onClick={onSwitchToLogin}
             style={{
               width: "100%",
               padding: "13px",
@@ -194,7 +196,7 @@ export default function SignupPage({ onSwitchToLogin }) {
           >
             Go to Sign In
           </button>
-          <p style={{ fontSize: 12, color: "#475569", marginTop: 16 }}>
+          <p style={{ fontSize: 12, color: "#475569", marginTop: 14 }}>
             Wrong email?{" "}
             <button
               onClick={() => setStep("form")}
@@ -228,12 +230,11 @@ export default function SignupPage({ onSwitchToLogin }) {
       }}
     >
       <div style={{ width: "100%", maxWidth: 420 }}>
-        {/* Logo */}
         <div
           style={{
             display: "flex",
             justifyContent: "center",
-            marginBottom: 32,
+            marginBottom: 28,
           }}
         >
           <div
@@ -276,7 +277,7 @@ export default function SignupPage({ onSwitchToLogin }) {
               fontSize: 13,
               color: "#64748b",
               textAlign: "center",
-              marginBottom: 8,
+              marginBottom: 12,
             }}
           >
             Start your{" "}
@@ -286,18 +287,17 @@ export default function SignupPage({ onSwitchToLogin }) {
             — no card required
           </p>
 
-          {/* Trial benefits */}
           <div
             style={{
               display: "flex",
               justifyContent: "center",
               gap: 16,
-              marginBottom: 28,
+              marginBottom: 24,
               flexWrap: "wrap",
             }}
           >
             {[
-              "Betty AI replies 24/7",
+              "Betty replies 24/7",
               "Orders auto-tracked",
               "Cancel anytime",
             ].map((b) => (
@@ -311,7 +311,6 @@ export default function SignupPage({ onSwitchToLogin }) {
             ))}
           </div>
 
-          {/* Error banner */}
           {error && (
             <div
               style={{
@@ -330,7 +329,14 @@ export default function SignupPage({ onSwitchToLogin }) {
                 color="#f43f5e"
                 style={{ flexShrink: 0, marginTop: 2 }}
               />
-              <p style={{ fontSize: 13, color: "#f43f5e", lineHeight: 1.5 }}>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#f43f5e",
+                  lineHeight: 1.5,
+                  margin: 0,
+                }}
+              >
                 {error}
               </p>
             </div>
@@ -341,7 +347,6 @@ export default function SignupPage({ onSwitchToLogin }) {
             noValidate
             style={{ display: "flex", flexDirection: "column", gap: 16 }}
           >
-            {/* Business name */}
             <div>
               <label
                 style={{
@@ -357,13 +362,13 @@ export default function SignupPage({ onSwitchToLogin }) {
               <input
                 type="text"
                 value={businessName}
+                placeholder="e.g. Ama's Beauty Store"
+                autoComplete="organization"
                 onChange={(e) => {
                   setBusinessName(e.target.value);
                   setFieldErrors((p) => ({ ...p, businessName: "" }));
                 }}
-                placeholder="e.g. Ama's Beauty Store"
-                autoComplete="organization"
-                style={inputStyle(!!fieldErrors.businessName)}
+                style={inp(!!fieldErrors.businessName)}
                 onFocus={(e) => {
                   e.target.style.borderColor = "#6366f1";
                 }}
@@ -380,7 +385,6 @@ export default function SignupPage({ onSwitchToLogin }) {
               )}
             </div>
 
-            {/* Email */}
             <div>
               <label
                 style={{
@@ -396,13 +400,13 @@ export default function SignupPage({ onSwitchToLogin }) {
               <input
                 type="email"
                 value={email}
+                placeholder="admin@yourbusiness.com"
+                autoComplete="email"
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setFieldErrors((p) => ({ ...p, email: "" }));
                 }}
-                placeholder="admin@yourbusiness.com"
-                autoComplete="email"
-                style={inputStyle(!!fieldErrors.email)}
+                style={inp(!!fieldErrors.email)}
                 onFocus={(e) => {
                   e.target.style.borderColor = "#6366f1";
                 }}
@@ -419,7 +423,6 @@ export default function SignupPage({ onSwitchToLogin }) {
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label
                 style={{
@@ -436,6 +439,8 @@ export default function SignupPage({ onSwitchToLogin }) {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setFieldErrors((p) => ({
@@ -444,12 +449,7 @@ export default function SignupPage({ onSwitchToLogin }) {
                       confirm: "",
                     }));
                   }}
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                  style={{
-                    ...inputStyle(!!fieldErrors.password),
-                    paddingRight: 44,
-                  }}
+                  style={{ ...inp(!!fieldErrors.password), paddingRight: 44 }}
                   onFocus={(e) => {
                     e.target.style.borderColor = "#6366f1";
                   }}
@@ -482,7 +482,6 @@ export default function SignupPage({ onSwitchToLogin }) {
                   {fieldErrors.password}
                 </p>
               )}
-              {/* Password strength indicator */}
               {password.length > 0 && (
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                   {[1, 2, 3, 4].map((i) => (
@@ -492,13 +491,13 @@ export default function SignupPage({ onSwitchToLogin }) {
                         flex: 1,
                         height: 3,
                         borderRadius: 99,
+                        transition: "background 0.2s",
                         background:
                           password.length >= i * 3
                             ? password.length >= 10
                               ? "#10b981"
                               : "#f59e0b"
                             : "#2a2a35",
-                        transition: "background 0.2s",
                       }}
                     />
                   ))}
@@ -506,7 +505,6 @@ export default function SignupPage({ onSwitchToLogin }) {
               )}
             </div>
 
-            {/* Confirm password */}
             <div>
               <label
                 style={{
@@ -522,13 +520,13 @@ export default function SignupPage({ onSwitchToLogin }) {
               <input
                 type={showPassword ? "text" : "password"}
                 value={confirm}
+                placeholder="Re-enter your password"
+                autoComplete="new-password"
                 onChange={(e) => {
                   setConfirm(e.target.value);
                   setFieldErrors((p) => ({ ...p, confirm: "" }));
                 }}
-                placeholder="Re-enter your password"
-                autoComplete="new-password"
-                style={inputStyle(!!fieldErrors.confirm)}
+                style={inp(!!fieldErrors.confirm)}
                 onFocus={(e) => {
                   e.target.style.borderColor = "#6366f1";
                 }}
@@ -575,8 +573,7 @@ export default function SignupPage({ onSwitchToLogin }) {
               lineHeight: 1.6,
             }}
           >
-            By signing up you agree to our Terms of Service. Already have an
-            account?{" "}
+            Already have an account?{" "}
             <button
               onClick={onSwitchToLogin}
               style={{
@@ -585,6 +582,7 @@ export default function SignupPage({ onSwitchToLogin }) {
                 color: "#818cf8",
                 cursor: "pointer",
                 fontSize: 12,
+                fontWeight: 500,
                 textDecoration: "underline",
               }}
             >
