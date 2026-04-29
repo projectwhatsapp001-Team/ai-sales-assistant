@@ -17,14 +17,8 @@ import BillingPage from "./components/pages/BillingPage";
 
 // ── SAFE SUPABASE IMPORT ──
 let supabase = null;
-try {
-  /*const mod = await import("./lib/supabase.js");
-  supabase = mod.supabase;*/
-  // ✅ Simple synchronous import
-  import { supabase } from "./lib/supabase";
-} catch (e) {
-  console.warn("⚠️ Supabase not loaded — using localStorage only:", e.message);
-}
+// ✅ Simple synchronous import
+import { supabase } from "./lib/supabase";
 
 // ── ERROR BOUNDARY ──
 class ErrorBoundary extends Component {
