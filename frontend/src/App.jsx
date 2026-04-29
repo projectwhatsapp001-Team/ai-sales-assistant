@@ -16,7 +16,6 @@ import AnalyticsPage from "./components/pages/AnalyticsPage";
 import BillingPage from "./components/pages/BillingPage";
 
 // ── SAFE SUPABASE IMPORT ──
-let supabase = null;
 // ✅ Simple synchronous import
 import { supabase } from "./lib/supabase";
 
